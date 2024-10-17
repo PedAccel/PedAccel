@@ -1,0 +1,24 @@
+name: pedaccel
+channels:
+  - conda-forge 
+dependencies:
+  # base depends
+  - pip
+  - python >=3.10,<3.11
+
+  - jupyterlab
+  - matplotlib
+  - numpy
+  - pandas
+  - seaborn
+
+  # ml
+  - pytorch
+  - scikit-learn
+  - scipy
+
+  # vision
+  - opencv
+
+  - pip:
+    - tsfel

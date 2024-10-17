@@ -1,0 +1,11 @@
+# pip install movie py
+# pip install imageio-ffmpeg
+# note Movie1.mp4 and Movie2.mp4 have to be in same folder/path as concatenate_video.py file
+
+from moviepy.editor import VideoFileClip, concatenate_videoclips
+import os
+os.environ["IMAGEIO_FFMPEG_EXE"] = r"MyFFMPEG_PATH"
+clip1 = VideoFileClip("Movie1.mp4")
+clip2 = VideoFileClip("Movie2.mp4")
+final_clip = concatenate_videoclips([clip1,clip2])
+final_clip.write_videofile("output.mp4")
