@@ -186,11 +186,11 @@ def main():
     output_dir = os.path.join(os.path.dirname(__file__), 'output')
     data_dir = os.path.join(os.path.dirname(__file__), 'data')
 
+    os.makedirs(output_dir, exist_ok=True)
+    
     if not os.path.exists(data_dir):
         print('Data directory does not exist')
         return
-    
-    os.makedirs(output_dir, exist_ok=True)
 
     pat_nums = [4, 5, 6, 8, 9, 13]
 
