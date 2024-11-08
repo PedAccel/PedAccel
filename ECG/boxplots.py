@@ -174,7 +174,7 @@ def main():
         print('Data directory does not exist')
         return
 
-    pat_nums = [4, 5, 6, 8, 9, 13]
+    pat_nums = [3, 4, 5, 6, 8, 9, 13]
 
     for i in tqdm(pat_nums):
         pat_num = 'pat' + str(i) + '_'

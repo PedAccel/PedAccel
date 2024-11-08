@@ -7,6 +7,7 @@ from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
 from matplotlib import pyplot as plt
 
 def load_data(file_path):
@@ -158,7 +159,6 @@ def split_data(df_ecg):
     X = df_ecg.drop(columns=['SBS_SCORE'])
 
     y = df_ecg['SBS_SCORE']
-    X = df_ecg.drop(columns=['SBS_SCORE'])
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
@@ -168,9 +168,12 @@ def split_data(df_ecg):
     return X_train, X_test, y_train, y_test
 
 def get_pca(df_ecg, pat_num=None, ecg_num=None, n_components=2, save=False):
-    X_train, X_test, y_train, y_test = split_data(df_ecg)
-    
-    X = pd.concat([X_train, X_test])
+    df_ecg = df_ecg.dropna(axis='columns')
+
+    X = df_ecg.drop(columns=['SBS_SCORE'])
+    y = df_ecg['SBS_SCORE']
+
+    X = standardize_data(X)
 
     if n_components is None:
         n_components = min(X.shape[0], X.shape[1])
@@ -180,18 +183,26 @@ def get_pca(df_ecg, pat_num=None, ecg_num=None, n_components=2, save=False):
 
     if save and pat_num is not None and ecg_num is not None:
         df = pd.DataFrame(data=X_pca, columns=[f'PC{i+1}' for i in range(n_components)])
-        df['SBS_SCORE'] = pd.concat([y_train, y_test]).values
+        df['SBS_SCORE'] = y
+
         output_path = os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_pca.csv')
         df.to_csv(output_path, index=False)
+
+        components_df = pd.DataFrame(data=pca.components_, columns=X.columns, index=[f'PC{i+1}' for i in range(n_components)])
+        output_path_components = os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_pca_components.csv')
+        components_df.to_csv(output_path_components, index=True)
+
         print(f'Saved PCA data at {output_path}')
         
     return pca
 
 def plot_pca(df_ecg, pat_num=None, ecg_num=None, n_components=None, save=False, show=False):
-    X_train, X_test, y_train, y_test = split_data(df_ecg)
+    df_ecg = df_ecg.dropna(axis='columns')
 
-    X = pd.concat([X_train, X_test])
-    y = pd.concat([y_train, y_test])
+    X = df_ecg.drop(columns=['SBS_SCORE'])
+    y = df_ecg['SBS_SCORE']
+
+    X = standardize_data(X)
 
     pca = PCA(n_components=n_components)
     X_pca = pca.fit_transform(X)
@@ -216,6 +227,53 @@ def plot_pca(df_ecg, pat_num=None, ecg_num=None, n_components=None, save=False, 
     if show:
         plt.show()
 
+    return X_pca
+
+def visualize_top_pca_features(df_ecg, pat_num=None, ecg_num=None, n_components=2, save=False, show=True):
+    df_ecg = df_ecg.dropna(axis='columns')
+
+    X = df_ecg.drop(columns=['SBS_SCORE'])
+    y = df_ecg['SBS_SCORE']
+
+    X = standardize_data(X)
+
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X)
+
+    loading_matrix = pd.DataFrame(pca.components_, columns=X.columns, index=[f'PC{i+1}' for i in range(n_components)])
+    top_features = loading_matrix.abs().idxmax(axis=1)
+
+    fig, axes = plt.subplots(1, len(top_features), figsize=(6 * len(top_features), 6), sharey=True)
+    fig.suptitle(f"Top Features vs SBS_SCORE with Linear Regression - Patient {pat_num}, ECG {ecg_num}")
+
+    for idx, feature in enumerate(top_features):
+        feature_values = df_ecg[feature].values.reshape(-1, 1)
+        
+        model = LinearRegression()
+        model.fit(feature_values, y)
+        y_pred = model.predict(feature_values)
+        
+        axes[idx].scatter(feature_values, y, color='blue', label=f"{feature}", edgecolor='k', s=60)
+        axes[idx].plot(feature_values, y_pred, color='red', linewidth=2, label="Regression Line")
+        axes[idx].set_title(f"{feature} vs SBS_SCORE\n(R² = {model.score(feature_values, y):.2f})")
+        axes[idx].set_xlabel(feature)
+        axes[idx].legend(loc='upper right')
+        axes[idx].grid(True)
+    
+    axes[0].set_ylabel("SBS_SCORE")
+    
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    
+    if save and pat_num is not None and ecg_num is not None:
+        output_path = os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_top_features_regression.png')
+        plt.savefig(output_path)
+        print(f'Saved top PCA feature regression plot at {output_path}')
+
+    if show:
+        plt.show()
+
+    return loading_matrix
+
 def main():
     output_dir = os.path.join(os.path.dirname(__file__), 'output')
     data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -226,7 +284,7 @@ def main():
         print('Data directory does not exist')
         return
 
-    pat_nums = [4, 5, 6, 8, 9, 13]
+    pat_nums = [3, 4, 5, 6, 8, 9, 13]
 
     for i in tqdm(pat_nums):
         pat_num = 'pat' + str(i) + '_'
@@ -245,14 +303,17 @@ def main():
         print('ECG1 :')
         get_pca(df_ecg1, i, 1, None, save=True)
         plot_pca(df_ecg1, i, 1, 2, save=True, show=False)
+        visualize_top_pca_features(df_ecg1, i, 1, n_components=4, save=True, show=False)
 
         print('ECG2 :')
         get_pca(df_ecg2, i, 2, None, save=True)
         plot_pca(df_ecg2, i, 2, 2, save=True, show=False)
+        visualize_top_pca_features(df_ecg2, i, 2, n_components=4, save=True, show=False)
 
         print('ECG3 :')
         get_pca(df_ecg3, i, 3, None, save=True)
         plot_pca(df_ecg3, i, 3, 2, save=True, show=False)
+        visualize_top_pca_features(df_ecg3, i, 3, n_components=4, save=True, show=False)
 
 if __name__ == '__main__':
     main()

@@ -1,13 +1,8 @@
 import os
-import contextlib
 import pandas as pd
 import numpy as np
 import neurokit2 as nk
 from tqdm import tqdm
-from scipy.io import loadmat
-from sklearn.model_selection import train_test_split 
-from sklearn.linear_model import LinearRegression 
-from sklearn.metrics import root_mean_squared_error, mean_absolute_error 
 from sklearn.preprocessing import StandardScaler
 
 def load_data(file_path):
@@ -153,34 +148,15 @@ def standardize_data(df_ecg):
     
     return df_ecg
 
-def get_regression(df_ecg):
-    df = pd.DataFrame({
-        'SBS_SCORE': df_ecg['SBS_SCORE'],
-        'HRV_MeanNN': df_ecg['HRV_MeanNN'],
-        'HRV_SDNN': df_ecg['HRV_SDNN'],
-        'HRV_LFHF': df_ecg['HRV_LFHF'],})
+def get_correlation_matrix(df_ecg, pat_num=None, ecg_num=None, save=False):
+    df_ecg = df_ecg.dropna(axis='columns')
+    df_ecg = standardize_data(df_ecg)
+    corr = df_ecg.corr()
 
-    if df.isna().any().any():
-        df.dropna(inplace=True)
+    if save:
+        corr.to_csv(os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_corr_matrix.csv'))
 
-    y = df['SBS_SCORE']
-    X = df.drop(columns=['SBS_SCORE'])
-
-    X = standardize_data(X)
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-
-    predictions = model.predict(X_test)
-
-    print('coefficients : ', model.coef_)
-    print('root_mean_squared_error : ', root_mean_squared_error(y_test, predictions))
-    print('mean_absolute_error : ', mean_absolute_error(y_test, predictions))
-    print('score : ', model.score(X_test, y_test))
-
-    return model
+    return corr
 
 def main():
     output_dir = os.path.join(os.path.dirname(__file__), 'output')
@@ -207,16 +183,15 @@ def main():
             df_ecg1 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg1.csv'))
             df_ecg2 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg2.csv'))
             df_ecg3 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg3.csv'))
+    
+        print('ECG1 :')
+        get_correlation_matrix(df_ecg1, i, 1, True)
 
-        with open(os.path.join(output_dir, f'{pat_num}output.txt'), "w") as f, contextlib.redirect_stdout(f):
-            print('ECG1 :')
-            get_regression(df_ecg1)
-            print('ECG2 :')
-            get_regression(df_ecg2)
-            print('ECG3 :')
-            get_regression(df_ecg3)
-        
-        print(f'Patient {i} done!')
+        print('ECG2 :')
+        get_correlation_matrix(df_ecg2, i, 2, True)
+
+        print('ECG3 :')
+        get_correlation_matrix(df_ecg3, i, 3, True)
 
 if __name__ == '__main__':
     main()
