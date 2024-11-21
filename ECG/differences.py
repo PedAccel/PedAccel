@@ -141,23 +141,36 @@ def save_metrics(file_path, pat_num, save=False):
     return df_ecg1, df_ecg2, df_ecg3
 
 def standardize_data(df_ecg):
-    if df_ecg.isna().any().any():
-        df_ecg.dropna(inplace=True)
+    df_ecg = df_ecg.dropna(axis='columns')
 
     for key in df_ecg.keys():
         df_ecg[key] = StandardScaler().fit_transform(df_ecg[key].values.reshape(-1, 1))
     
     return df_ecg
 
-def get_correlation_matrix(df_ecg, pat_num=None, ecg_num=None, save=False):
-    df_ecg = df_ecg.dropna(axis='columns')
+def get_differences(df_ecg, pat_num=None, ecg_num=None, save=False):
+    sbs_score = df_ecg['SBS_SCORE']
+    df_ecg = df_ecg.drop(columns=['SBS_SCORE'])
+
     df_ecg = standardize_data(df_ecg)
-    corr = df_ecg.corr()
 
+    df_ecg.insert(0, 'SBS_SCORE', sbs_score)
+
+    df_diff = pd.DataFrame()
+
+    for i in range(1, len(df_ecg)):
+        diff = df_ecg.iloc[i] - df_ecg.iloc[i - 1]
+        sbs_prev = df_ecg['SBS_SCORE'].iloc[i - 1]
+        sbs_curr = df_ecg['SBS_SCORE'].iloc[i]
+        diff = pd.concat([pd.Series([sbs_prev, sbs_curr], index=['SBS_SCORE_-1', 'SBS_SCORE_0']), diff], axis=0)
+        df_diff = pd.concat([df_diff, diff.to_frame().T], ignore_index=True)
+    
+    df_diff.rename(columns={'SBS_SCORE': 'DELTA_SBS_SCORE'}, inplace=True)
+    
     if save:
-        corr.to_csv(os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_corr_matrix.csv'))
-
-    return corr
+        df_diff.to_csv(os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_differences.csv'), index=False)
+    
+    return df_diff
 
 def main():
     output_dir = os.path.join(os.path.dirname(__file__), 'output')
@@ -184,15 +197,13 @@ def main():
             df_ecg1 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg1.csv'))
             df_ecg2 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg2.csv'))
             df_ecg3 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg3.csv'))
-    
-        print('ECG1 :')
-        get_correlation_matrix(df_ecg1, i, 1, True)
 
-        print('ECG2 :')
-        get_correlation_matrix(df_ecg2, i, 2, True)
+        print('ECG 1 :')
+        get_differences(df_ecg1, i, 1, True)
+        print('ECG 2 :')
+        get_differences(df_ecg2, i, 2, True)
+        print('ECG 3 :')
+        get_differences(df_ecg3, i, 3, True)
 
-        print('ECG3 :')
-        get_correlation_matrix(df_ecg3, i, 3, True)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
