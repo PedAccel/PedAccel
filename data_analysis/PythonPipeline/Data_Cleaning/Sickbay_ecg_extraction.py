@@ -1,8 +1,9 @@
 '''
 Extracts ECG data from SickBay CSV files and saves them as .mat files
-**This code is designed to run on the JHH SAFE Desktop Application**
+|_This code is designed to run on the JHH SAFE Desktop Application
 '''
 
+# Import Modules
 import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
@@ -36,7 +37,7 @@ def load_sickbay_mar(window_size, lead_time):
         patient_directory = os.path.join(base_directory, str(patient_mrn) + '_Study57_Tag123_EventList')
         print(patient_directory)
 
-        sbs_file = os.path.join(patient_dir, f'Patient{patient_num}_SBS_Scores.xlsx')
+        sbs_file = os.path.join(patient_directory, f'Patient{patient_num}_SBS_Scores.xlsx')
         if not os.path.isfile(sbs_file):
             raise FileNotFoundError(f'SBS Scores not found: {sbs_file}')
 
@@ -70,7 +71,7 @@ def load_sickbay_mar(window_size, lead_time):
                     file_path = os.path.join(patient_directory, file_name)
 
                     # Error Check
-                    if str(file_count) in file_path:
+                    if str(file_name) in file_path:
                         # Read the CSV file
                         chunk_iter = pd.read_csv(file_path, chunksize=10000000)
                         
@@ -105,30 +106,5 @@ def load_sickbay_mar(window_size, lead_time):
 
         print(f"Completed processing for patient MRN: {patient_mrn}")
 
-                            # print("Chunking...")
-                            # # Select relevant columns
-                            # chunk = chunk[['Relative Time (sec)', 'Time', 'GE_WAVE_ECG_1_ID', 'GE_WAVE_ECG_2_ID', 'GE_WAVE_ECG_3_ID']]
-                            
-                            # chunk['Time'] = pd.to_datetime(chunk['Time'])
-                            # chunk['Time_uniform'] = chunk['Time'].dt.strftime("%m/%d/%Y %I:%M:%S %p")
-                            # # Convert chunk to dictionary format for saving
-                            # data_dict = {col: chunk[col].values for col in chunk.columns}
-
-                            # print(data_dict)
-
-                            # # Save the chunk to a .mat file with a unique number
-                            # mat_file_name = f"Patient{patient_num}_{file_name.split('.')[0]}_chunk{chunk_counter}.mat"
-                            # savemat(mat_file_name, data_dict)
-                            
-                            # print(f"Saved chunk {chunk_counter} of {file_name} to {mat_file_name}")
-                            
-                            # Increment the chunk counter
-                        #     chunk_counter += 1
-                        #     del chunk
-                        
-                        # file_count += 1
-        
-# Finish one patient set extraction
-        # print(f"Saved {mat_file_name} for patient MRN: {patient_mrn}")
-                  
-load_sickbay_mar(16, 15)
+if __name__ == '__main__':
+    load_sickbay_mar(16, 15)

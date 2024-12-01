@@ -1,11 +1,15 @@
-# SickBay Data Extraction Code
+'''
+Extracts Vitals Data from Sickbay .xlsx files
+|_ To be run on JHH SAFE Desktop.
+'''
 
+# Import Modules
 import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
 from openpyxl import Workbook
 import scipy
-# from scipy.io import savemat
+from scipy.io import savemat
 import os
 import re
 os.chdir(r'S:\Sedation_monitoring')

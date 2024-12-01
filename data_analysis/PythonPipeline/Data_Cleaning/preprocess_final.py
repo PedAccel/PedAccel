@@ -1,6 +1,6 @@
 '''
 Acceleration and Vitals Preprocessing Code
-|_ Loads Vitals and Accelerometry Data from GT3X and Excel Files and concatenates them with SBS Scoring Files.
+|_ Loads Vitals and Accelerometry Data from .mat and .gt3x files, and concatenates them with SBS Scoring files (.xlsx).
 |_ Outputs PatientX_SICKBAY_XMIN_YMIN.mat file
 '''
 
@@ -12,7 +12,7 @@ import os
 from scipy.io import savemat
 from functools import reduce
 from scipy.io import loadmat
-import Filtering
+import filtering
 
 # Define Variables
 heart_rate = []
@@ -43,6 +43,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
     * {patient}_SBS_Scores.xlsx (provided by CCDA_Extraction_SBS.py)
     '''
     sr = 0.5 # Sampling Rate
+
     # Iterate through patient directories
     for patient in os.listdir(data_dir):
         for i in vitals_list:
@@ -165,10 +166,8 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
                 cur_list = np.array(cur_list, np.dtype('float16')) # Save List of np arrays as an np array
             
             filtered_dict['sbs'] = np.array(sbs)
-            # print(filtered_dict['start_time'])
-            # savemat(save_file, filtered_dict, appendmat = False)
             
-            # ADD IN Filtering Code Here...
+            # Filter Vitals Data:
             temp_hr = filtered_dict['heart_rate']
             temp_SpO2 = filtered_dict['SpO2']
             temp_rr = filtered_dict['respiratory_rate']
@@ -194,7 +193,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
             for j in range(len(vitals_list_final)):
                 print(f'original {vitals_names_final[j]} vitals array shape: {np.array(temp_vitals[j]).shape} ')
                 for i in range(len(vitals_SBS)):
-                    if (Filtering.checkVitals(temp_vitals[j][i], window_size, vitals_names_final[j])): # Check the data in a single window
+                    if (filtering.checkVitals(temp_vitals[j][i], window_size, vitals_names_final[j])): # Check the data in a single window
                         vitals_list_final[j].append(temp_vitals[j][i]) # Append that single window data to the 2D hr, rr, spo2, bpm, bps, bpd arrays if that window's data is valid
                     else:
                         vitals_list_final[j].append(flag_list) # Append an array of zeros for window number i for the jth vitals metric if the data is invalid (i.e. too many NaN points)
@@ -334,15 +333,6 @@ def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
             print(x_mag.shape)
             print(sbs.shape)
 
-            # # Vitals Data Preprocessed:
-            # hr = vitals_df['hr']
-            # SpO2 = vitals_df['spo2']
-            # rr = vitals_df['rr']
-            # bps = vitals_df['bps']
-            # bpm = vitals_df['bpm']
-            # bpd = vitals_df['bpd']
-            # # final_file = os.path.join(patient_dir, f'{patient}_FULLDATA_{lead_time}MIN_{window_size - lead_time}MIN{tag}.mat')
-
             save_file = os.path.join(patient_dir, vitals_sbs_file)
             savemat(save_file, dict([('x_mag', x_mag), ('heart_rate', hr), 
                                      ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
@@ -350,9 +340,11 @@ def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
 
 def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
     '''
-    Load actigraphy and EPIC data from a directory and segment it into time windows.
+    *** OPTIONAL CODE FOR ACCELEROMETRY ONLY ANALYSIS
+    
+    |_Load actigraphy and EPIC data from a directory and segment it into time windows.
 
-    Assume that data_dir contains a directory for each patient, and all directories in data_dir are patient directories. Each patient directory must contain the actigraphy file and the EPIC file. 
+    |_Assume that data_dir contains a directory for each patient, and all directories in data_dir are patient directories. Each patient directory must contain the actigraphy file and the EPIC file. 
 
     All patient files must be prefixed by their folder name. For example:
     Patient9
@@ -432,11 +424,16 @@ if __name__ == '__main__':
     |_ lead_time_in: length of analysis before SBS score
     |_ tag: string tag of mat file
         E.g., _Validated, _Nurse, _WSTIM, etc.
+
+    *** You must run load_segment_sickbay prior to load_and_segment_data_mat
     '''
-    data_dir = r'C:\Users\sidha\OneDrive\Sid Stuff\PROJECTS\iMEDS Design Team\Data Analysis\PedAccel\data_analysis\PythonPipeline\PatientData'
+
+    data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\PythonPipeline\PatientData'
+    # data_dir = r'C:\Users\sidha\OneDrive\Sid Stuff\PROJECTS\iMEDS Design Team\Data Analysis\PedAccel\data_analysis\PythonPipeline\PatientData'
     # data_dir = r'C:\Users\jakes\Documents\DT 6 Analysis\PythonCode\PedAccel\data_analysis\PythonPipeline\PatientData'
     window_size_in = 16
     lead_time_in = 15
     tag = "Nurse"
-    #load_segment_sickbay(data_dir, window_size_in, lead_time_in, tag)
-    load_and_segment_data_mat(data_dir, window_size_in, lead_time_in, tag)
+
+    # load_segment_sickbay(data_dir, window_size_in, lead_time_in, tag)
+    # load_and_segment_data_mat(data_dir, window_size_in, lead_time_in, tag)

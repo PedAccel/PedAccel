@@ -1,5 +1,10 @@
-# Filtering
+'''
+Vitals Filtering Code
+|_ Filters vitals data through normal bounding
+|_ 
+'''
 
+# Filtering
 import pandas as pd
 import numpy as np
 import os
@@ -10,31 +15,44 @@ from scipy.stats import pearsonr
 import math
 
 def checkVitals(vital_array, window_size, vital_type):
+    '''
+    Filters vitals data by bounding data.
+    
+    Citation for normal ranges:
+    Fleming S, Thompson M, Stevens R, Heneghan C, Plüddemann A, Maconochie I, 
+    Tarassenko L, Mant D. Normal ranges of heart rate and respiratory rate in 
+    children from birth to 18 years of age: a systematic review of observational 
+    studies. Lancet. 2011 Mar 19;377(9770):1011-8. doi: 10.1016/S0140-6736(10)62226-X. 
+    PMID: 21411136; PMCID: PMC3789232.
+    '''
     for index, val in enumerate(vital_array):
         if vital_type == 'hr':
             if val > 220 or val < 30:
-                vital_array[index] = np.NaN
+                vital_array[index] = np.nan
         elif vital_type == 'rr':
             if val > 80 or val < 10:
-                vital_array[index] = np.NaN
+                vital_array[index] = np.nan
         elif vital_type == 'spo2':
             if val > 115 or val < 80:
-                vital_array[index] = np.NaN
+                vital_array[index] = np.nan
         elif vital_type == 'bps':
             if val > 150 or val < 50:
-                vital_array[index] = np.NaN
+                vital_array[index] = np.nan
         elif vital_type == 'bpd':
             if val > 90 or val < 30:
-                vital_array[index] = np.NaN
+                vital_array[index] = np.nan
         elif vital_type == 'bpm':
             if val > 150 or val < 50:
-                vital_array[index] = np.NaN
-        else: 
+                vital_array[index] = np.nan
+        else:
             print('Error, improper vital type specified')
             return False
     return interpolate_nan(vital_array, window_size)
 
 def interpolate_nan(signal, window_size):
+    '''
+    Interpolates to fill in nan values that arise during filtering.
+    '''
     num_data_points = window_size * 30 # Assumes 0.5Hz data recordings
     nan_count = 0
 
@@ -62,8 +80,7 @@ def interpolate_nan(signal, window_size):
     else: 
         return True
 
-#test
-
+# Test
 if __name__ == '__main__':
     # data_dir = r'C:\Users\jakes\Documents\DT 6 Analysis\PythonCode\PedAccel\data_analysis\PythonPipeline\PatientData'
     data_dir = r'C:\Users\sidha\OneDrive\Sid Stuff\PROJECTS\iMEDS Design Team\Data Analysis\PedAccel\data_analysis\PythonPipeline\PatientData'

@@ -1,5 +1,9 @@
-# SickBay MAR Data Extraction Code
+'''
+Extracts MAR Data from Sickbay .xlsx files
+|_ To be run on JHH SAFE Desktop.
+'''
 
+# Import Modules
 import pandas as pd
 import numpy as np
 from openpyxl import load_workbook

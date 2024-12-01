@@ -1,5 +1,9 @@
-# CCDA SBS Extraction Code
+'''
+Extracts Nurse SBS Scores from CCDA Data
+|_ To be run on JHH SAFE Desktop.
+'''
 
+# Import Modules
 import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
