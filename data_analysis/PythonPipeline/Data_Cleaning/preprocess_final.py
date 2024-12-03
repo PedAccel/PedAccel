@@ -336,7 +336,7 @@ def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
             save_file = os.path.join(patient_dir, vitals_sbs_file)
             savemat(save_file, dict([('x_mag', x_mag), ('heart_rate', hr), 
                                      ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
-                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs)]))
+                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times)]))
 
 def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
     '''
@@ -433,7 +433,7 @@ if __name__ == '__main__':
     # data_dir = r'C:\Users\jakes\Documents\DT 6 Analysis\PythonCode\PedAccel\data_analysis\PythonPipeline\PatientData'
     window_size_in = 16
     lead_time_in = 15
-    tag = "Nurse"
+    tag = "Nurse1"
 
     # load_segment_sickbay(data_dir, window_size_in, lead_time_in, tag)
-    # load_and_segment_data_mat(data_dir, window_size_in, lead_time_in, tag)
+    load_and_segment_data_mat(data_dir, window_size_in, lead_time_in, tag)
