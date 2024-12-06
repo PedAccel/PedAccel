@@ -54,18 +54,15 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
             print('Processing Sickbay:', patient)
 
             # Load SBS data
+            # sbs_file = os.path.join(patient_dir, f'{patient}_SBS_Scores.xlsx')
+
             sbs_file = os.path.join(patient_dir, f'{patient}_SBS_Scores.xlsx')
             if not os.path.isfile(sbs_file):
                 raise FileNotFoundError(f'EPIC file not found: {sbs_file}')
             epic_data, epic_names = load_from_excel(sbs_file)
             
-            # Statement to exclude SBS scores without stimulation
-            # epic_data = epic_data[epic_data['Stim?'] == 'Y']
-            
-            # Statement for Default SBS Score Processing (Score 4)
-            # for i in range(len(epic_data['SBS'])):
-            #     if epic_data['Default?'][i] == 'Y':
-            #         epic_data['SBS'][i] = 4
+            # Statement to load Retrospective SBS Scores
+            # epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
             
             epic_data.dropna(subset=['SBS'], inplace=True)
             epic_data['dts'] = pd.to_datetime(epic_data['Time_uniform'], format='mixed')
@@ -332,6 +329,8 @@ def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
             sbs = np.array(sbs)
             print(x_mag.shape)
             print(sbs.shape)
+
+            matched_start_times_str = [ts.isoformat() for ts in matched_start_times]
 
             save_file = os.path.join(patient_dir, vitals_sbs_file)
             savemat(save_file, dict([('x_mag', x_mag), ('heart_rate', hr), 
