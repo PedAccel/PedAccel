@@ -253,7 +253,7 @@ def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
             
             # SBS Scores from MAT File
             print('Loading SBS data')
-            vitals_sbs_file = os.path.join(patient_dir, f'{patient}_SICKBAY_{lead_time}MIN_{window_size - lead_time}MIN{tag}.mat')
+            vitals_sbs_file = os.path.join(patient_dir, f'{patient}_SICKBAY_{lead_time}MIN_{window_size - lead_time}MIN{tag}.mat') #requires load_segment_sickbay to be run before
             
             # Implement error handling here if file does not exist...
             vitals_data = loadmat(vitals_sbs_file)
@@ -436,3 +436,37 @@ if __name__ == '__main__':
 
     # load_segment_sickbay(data_dir, window_size_in, lead_time_in, tag)
     load_and_segment_data_mat(data_dir, window_size_in, lead_time_in, tag)
+
+
+'''
+    Data extraction Piepline Summary:
+
+    Steps
+    1) ccda_sbs_extraction. Runs on Safe desktop. Extracts SBS scores for a patient. 
+        **How to incorporate retrospective scores: 
+
+    2) sickbay_vitals extraction. Runs on Safe desktop and extracts vitals data for a patient. 
+    3) save the gt3x file from accelerometry
+    4) load_segment_sickbay. This will filter the vitals data, replacing nan values and erreneous values. If too many invalid values are associated with a single SBS score and 
+    vitals metric (i.e. more than 5 HR values were -10), then all measurements of that vitals metric associated with that SBS score will be replaced by an array of zero, 
+    serving as a flag that this particular score is invalid for this particular vitals metric later in analysis. 
+    5) Run load_and_segment_data_mat. This will produce a final .mat file with SBS, accelerometry, and Sickbay vitals. This file will be opened and used for analysis. 
+    Final .mat file saved as either
+    "{patient}_{lead_time}MIN_{window_size - lead_time}MIN_Validated.mat" or 
+    "{patient}_{lead_time}MIN_{window_size - lead_time}MIN_Nurse.mat"
+
+    6) Optionally run sickbay_mar extraction on safe desktop to collect mar data as well. 
+
+    **gt3x files, SBS extraction, and sickbay extraction Data link: 
+    __________________________________________________________________________________________________________
+    __________________________________________________________________________________________________________
+    ECG Data Extraction Pipeline: 
+
+    **ECG Data extraction is conucted in the ECG data folder. Regardless, the steps for ECG processing are below: 
+
+    1) 
+    2) 
+    3) 
+
+    ECG Data link: https://livejohnshopkins-my.sharepoint.com/personal/sraghav9_jh_edu/_layouts/15/onedrive.aspx?id=%2Fpersonal%2Fsraghav9%5Fjh%5Fedu%2FDocuments%2FPICU%20Study%20Team%20De%2Didentified%20Data%2FPICU%5FECG%5FExtract&sortField=FileLeafRef&isAscending=true&e=5%3Af412fdd8d8c44a4b8365bc85b29451c1&sharingv2=true&fromShare=true&at=9&CT=1736100591204&OR=OWA%2DNT%2DMail&CID=57c7b448%2D8f68%2D3e1c%2D3917%2D16437e42f503&clickParams=eyJYLUFwcE5hbWUiOiJNaWNyb3NvZnQgT3V0bG9vayBXZWIgQXBwIiwiWC1BcHBWZXJzaW9uIjoiMjAyNDEyMTMwMDIuMTEiLCJPUyI6IldpbmRvd3MgMTEifQ%3D%3D&cidOR=Client&FolderCTID=0x012000334AC779193355408C0BCC6F3CAABE8A&view=0
+'''    
