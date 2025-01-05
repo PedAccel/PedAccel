@@ -464,7 +464,7 @@ if __name__ == '__main__':
 
     **ECG Data extraction is conucted in the ECG data folder. Regardless, the steps for ECG processing are below: 
 
-    1) 
+    1) sickbay_ecg_extraction.py to create .mat files with ECG data and SBS scores around 15_1_window
     2) 
     3) 
 

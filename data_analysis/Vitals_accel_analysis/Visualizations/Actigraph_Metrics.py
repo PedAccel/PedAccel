@@ -1,5 +1,7 @@
 #This Script is used to generate actigraphy features and metrics for Analysis 
 
+# add better documentation here
+
 #Load Necessary Libraries
 import numpy as np
 import matplotlib.pyplot as plt
