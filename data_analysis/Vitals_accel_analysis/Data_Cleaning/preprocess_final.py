@@ -36,6 +36,10 @@ def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
         return array, col_names
     return df, col_names
 
+import pandas as pd
+
+
+
 def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
     '''
     Processes Sickbay Vitals MATLAB file and SBS Score Excel File
@@ -226,7 +230,19 @@ def load_gt3x_data(gt3x_filepath, to_numpy=False, verbose=False):
 
     return df, col_names
 
-def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
+def slice_data_by_time(data_dict, final_time):
+    # Extract the start_times from the dictionary
+    start_times = data_dict['start_time']
+    
+    # Find the indices where the start_time is less than final_time
+    valid_indices = [i for i, start_time in enumerate(start_times) if start_time < final_time]
+    
+    # Slice the other metrics based on the valid indices
+    sliced_data = {key: value[valid_indices] for key, value in data_dict.items() if key != 'start_time'}
+    
+    return sliced_data
+
+def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15, tag = ""):
     '''
     Load actigraphy and vitals waveform MAT file from a directory and segment it into time windows. 
     PatientX
@@ -332,10 +348,15 @@ def load_and_segment_data_mat(data_dir, window_size=15, lead_time=15, tag = ""):
 
             matched_start_times_str = [ts.isoformat() for ts in matched_start_times]
 
+
             save_file = os.path.join(patient_dir, vitals_sbs_file)
-            savemat(save_file, dict([('x_mag', x_mag), ('heart_rate', hr), 
+            data_dict = dict([('x_mag', x_mag), ('heart_rate', hr), 
                                      ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
-                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times)]))
+                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times)])
+            
+            sliced_data = slice_data_by_time(data_dict, final_time) #Assumes final_time and start_time are TimeStamp Objects
+
+            savemat(save_file, sliced_data)
 
 def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
     '''
@@ -435,7 +456,9 @@ if __name__ == '__main__':
     tag = "Nurse1"
 
     # load_segment_sickbay(data_dir, window_size_in, lead_time_in, tag)
-    load_and_segment_data_mat(data_dir, window_size_in, lead_time_in, tag)
+
+    final_time = pd.Timestamp('2025-01-01 09:00:00') # Some TimeStamp Object
+    load_and_segment_data_mat(data_dir, final_time, window_size_in, lead_time_in, tag)
 
 
 '''
@@ -443,7 +466,7 @@ if __name__ == '__main__':
 
     Steps
     1) ccda_sbs_extraction. Runs on Safe desktop. Extracts SBS scores for a patient. 
-        **How to incorporate retrospective scores: 
+        **How to incorporate retrospective scores: retro scores are formatted the same as ccda extracted scores and fit into the pipeline in the same way. 
 
     2) sickbay_vitals extraction. Runs on Safe desktop and extracts vitals data for a patient. 
     3) save the gt3x file from accelerometry
@@ -457,7 +480,7 @@ if __name__ == '__main__':
 
     6) Optionally run sickbay_mar extraction on safe desktop to collect mar data as well. 
 
-    **gt3x files, SBS extraction, and sickbay extraction Data link: 
+    **gt3x files, SBS extraction, and sickbay extraction Data link: https://drive.google.com/drive/folders/1ZwHph6pqXW_QsIbGNAYLm9PNC-l9rVFg
     __________________________________________________________________________________________________________
     __________________________________________________________________________________________________________
     ECG Data Extraction Pipeline: 
