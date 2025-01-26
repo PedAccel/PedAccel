@@ -14,16 +14,6 @@ from functools import reduce
 from scipy.io import loadmat
 import filtering
 
-# Define Variables
-heart_rate = []
-SpO2 = []
-respiratory_rate = []
-blood_pressure_systolic = []
-blood_pressure_mean = []
-blood_pressure_diastolic = []
-
-vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
-names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
 
 def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
     # Load data from Excel file
@@ -40,11 +30,11 @@ import pandas as pd
 
 
 
-def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
+def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
     '''
     Processes Sickbay Vitals MATLAB file and SBS Score Excel File
     * {patient}_SickBayData.mat (obtained from SickBayExtraction.py)
-    * {patient}_SBS_Scores.xlsx (provided by CCDA_Extraction_SBS.py)
+    * {patient}_SBS_Scores_{Tag}.xlsx (provided by CCDA_Extraction_SBS.py). Tag = "Nurse" or Tag = "Retro"
     '''
     sr = 0.5 # Sampling Rate
 
@@ -60,19 +50,36 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
             # Load SBS data
             # sbs_file = os.path.join(patient_dir, f'{patient}_SBS_Scores.xlsx')
 
-            sbs_file = os.path.join(patient_dir, f'{patient}_SBS_Scores.xlsx')
+            # SBS Scores from Excel File
+            print('Loading SBS data')
+            s = f"_SBS_Scores_{tag}.xlsx"
+            sbs_file = os.path.join(patient_dir, patient + s)
             if not os.path.isfile(sbs_file):
-                raise FileNotFoundError(f'EPIC file not found: {sbs_file}')
+                # raise FileNotFoundError(f'Actigraphy file not found: {sbs_file}')
+                print("SBS File not found")
+                continue 
+
             epic_data, epic_names = load_from_excel(sbs_file)
             
             # Statement to load Retrospective SBS Scores
-            # epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
+            if(tag == "Retro"):
+                epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
             
+            # Print the number of rows before dropping NaN values
+            print(f"Number of rows before dropping NaN: {epic_data.shape[0]}")
+
+            # Drop rows with NaN in the 'SBS' column
             epic_data.dropna(subset=['SBS'], inplace=True)
+
+            # Print the number of rows after dropping NaN values
+            print(f"Number of rows after dropping NaN: {epic_data.shape[0]}")
+
             epic_data['dts'] = pd.to_datetime(epic_data['Time_uniform'], format='mixed')
             epic_data['start_time'] = epic_data['dts'] - pd.Timedelta(lead_time, 'minutes')
             epic_data['end_time'] = epic_data['dts'] + pd.Timedelta(window_size - lead_time, 'minutes')
             
+            print(epic_data.head(5))
+
             # Load heart rate data
             vitals_file = os.path.join(patient_dir, f'{patient}_SickBayData.mat')
             if not os.path.isfile(vitals_file):
@@ -90,15 +97,20 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
             vitals_data['blood_pressure_mean'] = vitals_data['blood_pressure_mean'].flatten()  # Flatten heart rate array
             vitals_data['blood_pressure_diastolic'] = vitals_data['blood_pressure_diastolic'].flatten()  # Flatten heart rate array
 
+
             # Create a DataFrame from the dictionary
             vitals_data_df = pd.DataFrame({'dts': vitals_data['dts'], 'heart_rate': vitals_data['heart_rate'], 'SpO2': vitals_data['SpO2'], 'respiratory_rate': vitals_data['respiratory_rate']
                                            , 'blood_pressure_systolic': vitals_data['blood_pressure_systolic'], 'blood_pressure_mean': vitals_data['blood_pressure_mean']
                                            , 'blood_pressure_diastolic': vitals_data['blood_pressure_diastolic']})
             sbs = []
-            
+
+            print(vitals_data_df.head(5))
+
             #Time Variables
             start_time = []
             end_time = []
+            count = 0
+            PRNs = []
 
             for i, row in epic_data.iterrows():
                 # Define the time window
@@ -112,7 +124,8 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
                     sbs.append(row['SBS'])
                     start_time.append(start_time_cur)
                     end_time.append(end_time_cur)
-
+                    if tag == "Retro":
+                        PRNs.append(row['SedPRN'])
                     # Calculate the relative time within the window
                     in_window['dts'] = in_window['dts'] - row['start_time']
 
@@ -122,6 +135,8 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
                         temp_list = in_window[column].tolist()
                         vital.append(temp_list)
                         index+=1
+                else: 
+                    count+=1
 
             # Save Start/End times in correct format
             start_time_str = [ts.isoformat() for ts in start_time]
@@ -139,7 +154,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
             vitals_list_filtered = [v for v, n in zip(vitals_list, names) if v]
             names_filtered = [n for v, n in zip(vitals_list, names) if v]
 
-            filename = f'{patient}_SICKBAY_{lead_time}MIN_{window_size-lead_time}MIN{tag}.mat'
+            filename = f'{patient}_SICKBAY_{lead_time}MIN_{window_size-lead_time}MIN_{tag}.mat'
             save_file = os.path.join(patient_dir, filename)
             filtered_dict = {name: vitals for name, vitals in zip(names_filtered, vitals_list_filtered)}
 
@@ -152,7 +167,6 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
 
                     # Sampling vitals in data has glitches where extra or not enough data is recorded.
                     # To compensate, we remove or fill values: 
-                    print(f'before sampling: {len(cur_list[j])}')
                     expected_samples = window_size * 30 # Time(min) * 60 sec/min * sr(1sample/2 sec)
                     if(len(cur_list[j]) > expected_samples):
                         cut = len(cur_list[j])-expected_samples
@@ -163,7 +177,6 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
                         num_missing_samples = expected_samples - len(cur_list[j])
                         nan_values = np.full(num_missing_samples, np.nan)
                         cur_list[j] = np.concatenate((cur_list[j], nan_values))
-                        print(f'after sampling: {len(cur_list[j])}')
                 cur_list = np.array(cur_list, np.dtype('float16')) # Save List of np arrays as an np array
             
             filtered_dict['sbs'] = np.array(sbs)
@@ -192,23 +205,29 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = ""):
             
             # Iterate through each SBS score for every vitals metric, assess validity of data
             for j in range(len(vitals_list_final)):
-                print(f'original {vitals_names_final[j]} vitals array shape: {np.array(temp_vitals[j]).shape} ')
+                # print(f'original {vitals_names_final[j]} vitals array shape: {np.array(temp_vitals[j]).shape} ')
                 for i in range(len(vitals_SBS)):
                     if (filtering.checkVitals(temp_vitals[j][i], window_size, vitals_names_final[j])): # Check the data in a single window
                         vitals_list_final[j].append(temp_vitals[j][i]) # Append that single window data to the 2D hr, rr, spo2, bpm, bps, bpd arrays if that window's data is valid
                     else:
                         vitals_list_final[j].append(flag_list) # Append an array of zeros for window number i for the jth vitals metric if the data is invalid (i.e. too many NaN points)
-                        print(f'{vitals_names_final[j]} SBS index {i} has insufficient data, zeros appended in place') 
-                print(f'final {vitals_names_final[j]} vitals array shape: {np.array(vitals_list_final[j]).shape}') # The number of SBS scores by the number of samples in a window
+                        # print(f'{vitals_names_final[j]} SBS index {i} has insufficient data, zeros appended in place') 
+                # print(f'final {vitals_names_final[j]} vitals array shape: {np.array(vitals_list_final[j]).shape}') # The number of SBS scores by the number of samples in a window
             
             vitals_list_filtered_final = [v for v, n in zip(vitals_list_final, vitals_names_final) if v]
             names_filtered_final = [n for v, n in zip(vitals_list_final, vitals_names_final) if v]
             filtered_dict_final = {name: vitals for name, vitals in zip(names_filtered_final, vitals_list_filtered_final)}
+            
+            if tag == 'Retro':
+                print('PRNs added')
+                filtered_dict_final['SedPRN'] = PRNs
 
             filtered_dict_final['start_time'] = np.array(start_time_str, dtype=object)
             filtered_dict_final['end_time'] = np.array(end_time_str, dtype=object)
             filtered_dict_final['sbs'] = np.array(vitals_SBS)
+
             savemat(save_file, filtered_dict_final, appendmat = False)
+            print(f"{patient} has {count} SBS scores where vitals data does not line up in the time window")
 
 def load_gt3x_data(gt3x_filepath, to_numpy=False, verbose=False):
     '''
@@ -237,12 +256,17 @@ def slice_data_by_time(data_dict, final_time):
     # Find the indices where the start_time is less than final_time
     valid_indices = [i for i, start_time in enumerate(start_times) if start_time < final_time]
     
-    # Slice the other metrics based on the valid indices
-    sliced_data = {key: value[valid_indices] for key, value in data_dict.items() if key != 'start_time'}
+    # Slice all metrics including start_time based on the valid indices
+    sliced_data = {
+        key: [value[i] for i in valid_indices] if isinstance(value, list) else value[valid_indices]
+        for key, value in data_dict.items()
+    }
     
     return sliced_data
 
-def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15, tag = ""):
+
+
+def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_time=15, tag = ""):
     '''
     Load actigraphy and vitals waveform MAT file from a directory and segment it into time windows. 
     PatientX
@@ -252,10 +276,21 @@ def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
     # search for patient directories in the data directory
     for patient in os.listdir(data_dir):
+
+        final_time = final_times_dict[patient]
+
         # filter out non-directories
         patient_dir = os.path.join(data_dir, patient)
         if os.path.isdir(patient_dir):
             print('Processing:', patient)
+
+            # SBS Scores from MAT File
+            print('Loading SBS data')
+            vitals_sbs_file = os.path.join(patient_dir, f'{patient}_SICKBAY_{lead_time}MIN_{window_size - lead_time}MIN_{tag}.mat') #requires load_segment_sickbay to be run before
+            if not os.path.isfile(vitals_sbs_file):
+                # raise FileNotFoundError(f'Actigraphy file not found: {sbs_file}')
+                print("SBS File not found")
+                continue 
 
             print('Loading actigraphy data')
             actigraphy_filepath = os.path.join(patient_dir, patient + '_AccelData.gt3x')
@@ -267,14 +302,12 @@ def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15
             print(acti_data.shape)
             print(acti_names)
             
-            # SBS Scores from MAT File
-            print('Loading SBS data')
-            vitals_sbs_file = os.path.join(patient_dir, f'{patient}_SICKBAY_{lead_time}MIN_{window_size - lead_time}MIN{tag}.mat') #requires load_segment_sickbay to be run before
-            
             # Implement error handling here if file does not exist...
             vitals_data = loadmat(vitals_sbs_file)
             # print(vitals_data)
             SBS = vitals_data['sbs'].flatten()
+            if tag == 'Retro':
+                SedPRN = vitals_data['SedPRN'].flatten()
             # Flatten the nested arrays
             start_time_flat = vitals_data['start_time'].flatten()
             end_time_flat = vitals_data['end_time'].flatten()
@@ -283,12 +316,20 @@ def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15
             start_time = [pd.Timestamp(str(ts[0])) for ts in start_time_flat]
             end_time = [pd.Timestamp(str(ts[0])) for ts in end_time_flat]
 
-            epic_data = pd.DataFrame({
-                'SBS': SBS,
-                'start_time': start_time,
-                'end_time': end_time
-            })
-        
+            if tag == 'Retro':
+                epic_data = pd.DataFrame({
+                    'SBS': SBS,
+                    'start_time': start_time,
+                    'end_time': end_time, 
+                    'SedPRN' : SedPRN
+                })
+            else: 
+                epic_data = pd.DataFrame({
+                    'SBS': SBS,
+                    'start_time': start_time,
+                    'end_time': end_time
+                })
+                        
             print('Processing')
             # print(acti_data['dts'].head())
             print(acti_data.columns)
@@ -305,7 +346,7 @@ def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15
             # Create new start_time/end_time variables that are for acti_data
             matched_start_times = []
             matched_end_times = []
-            
+            PRNs = []
             # Iterate through every SBS score in epic_data
             for i, row in epic_data.iterrows():
                 # don't like the for-loop, but its not a big bottleneck for the number of SBS recordings we are getting right now. 
@@ -318,6 +359,8 @@ def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15
                     windows.append(in_window)
                     matched_start_times.append(row['start_time'])
                     matched_end_times.append(row['end_time'])
+                    if tag == "Retro":
+                        PRNs.append(row["SedPRN"])
                 else:
                     # vitals_df.drop(index=i, inplace=True)
                     hr[i, :] = np.nan
@@ -350,15 +393,25 @@ def load_and_segment_data_mat(data_dir, final_time, window_size=15, lead_time=15
 
 
             save_file = os.path.join(patient_dir, vitals_sbs_file)
-            data_dict = dict([('x_mag', x_mag), ('heart_rate', hr), 
+
+            if tag == "Retro":
+                data_dict = dict([('x_mag', x_mag), ('heart_rate', hr), 
                                      ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
-                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times)])
-            
-            sliced_data = slice_data_by_time(data_dict, final_time) #Assumes final_time and start_time are TimeStamp Objects
+                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times), ('PRNs', PRNs)])
+            else: 
+                data_dict = dict([('x_mag', x_mag), ('heart_rate', hr), 
+                            ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
+                            ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times)])
+                
+            if final_time is not None:
+                sliced_data = slice_data_by_time(data_dict, final_time) #Assumes final_time and start_time are TimeStamp Objects
+            else: 
+                sliced_data = data_dict
 
             savemat(save_file, sliced_data)
 
-def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
+
+def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time=10, tag = ""):
     '''
     *** OPTIONAL CODE FOR ACCELEROMETRY ONLY ANALYSIS
     
@@ -376,10 +429,21 @@ def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
     '''
     # search for patient directories in the data directory
     for patient in os.listdir(data_dir):
+        final_time = final_times[patient]
         # filter out non-directories
         patient_dir = os.path.join(data_dir, patient)
         if os.path.isdir(patient_dir):
             print('Processing:', patient)
+            
+            # SBS Scores from Excel File
+            print('Loading SBS data')
+            s = f"_SBS_Scores_{tag}.xlsx"
+            sbs_file = os.path.join(patient_dir, patient + s)
+            if not os.path.isfile(sbs_file):
+                # raise FileNotFoundError(f'Actigraphy file not found: {sbs_file}')
+                print("SBS File not found")
+                continue 
+
 
             print('Loading actigraphy data')
             actigraphy_filepath = os.path.join(patient_dir, patient + '_AccelData.gt3x')
@@ -391,11 +455,9 @@ def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
             print(acti_data.shape)
             print(acti_names)
         
-            # SBS Scores from Excel File
-            print('Loading SBS data')
-            sbs_file = os.path.join(patient_dir, patient + '_SBS_Scores.xlsx')
-            if not os.path.isfile(sbs_file):
-                raise FileNotFoundError(f'Actigraphy file not found: {sbs_file}')
+
+
+
             epic_data, epic_names = load_from_excel(sbs_file)
             epic_data.dropna(subset=['SBS'], inplace = True) # drop rows with missing SBS scores
             print(epic_data.shape)
@@ -405,9 +467,14 @@ def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
             epic_data['start_time'] = epic_data['dts'] - pd.Timedelta(lead_time, 'minutes')
             epic_data['end_time'] = epic_data['dts'] + pd.Timedelta(window_size - lead_time, 'minutes')
 
+            if(tag == "Retro"):
+                epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
+            
             print('Processing')
             windows = []
             sbs = []
+            start_times = []
+            PRNs = []
             for i, row in epic_data.iterrows():
                 # don't like the for-loop, but its not a big bottleneck for the number of SBS recordings we are getting right now. 
 
@@ -415,8 +482,12 @@ def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
                 in_window.rename(columns={'mag': f'mag_{i}'}, inplace=True)
                 if in_window.shape[0] > 0:
                     sbs.append(row['SBS'])
+                    start_times.append(row['start_time'])
                     in_window['dts'] = in_window['dts'] - row['start_time']
                     windows.append(in_window)
+
+                    if tag == "Retro":
+                        PRNs.append(row["SedPRN"])
                 else:
                     print('No matching accelerometry data for SBS recording at ', row['dts'])
 
@@ -432,9 +503,21 @@ def load_and_segment_data_excel(data_dir, window_size=10, lead_time=10):
             print(x_mag.shape)
             print(sbs.shape)
 
-            filename = f'{patient}_{lead_time}MIN_{window_size - lead_time}MIN_Validated.mat'
+            filename = f'{patient}_{lead_time}MIN_{window_size - lead_time}MIN_Accel_{tag}.mat'
             save_file = os.path.join(patient_dir, filename)
-            savemat(save_file, dict([('x_mag', x_mag), ('sbs', sbs)]))
+
+            if final_time is not None and tag == "Retro":
+                sliced_data = slice_data_by_time(dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times), ('PRN', PRNs)]), final_time) #Assumes final_time and start_time are TimeStamp Objects
+            elif tag == "Retro": 
+                sliced_data = dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times), ('PRN_Times', PRNs)])
+            elif final_time is not None and tag != "Retro": 
+                sliced_data = slice_data_by_time(dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times)]), final_time) #Assumes final_time and start_time are TimeStamp Objects
+            else: 
+                sliced_data = dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times)])
+
+            savemat(save_file, sliced_data) 
+
+
 
 if __name__ == '__main__':
     '''
@@ -448,17 +531,32 @@ if __name__ == '__main__':
     *** You must run load_segment_sickbay prior to load_and_segment_data_mat
     '''
 
-    data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\PythonPipeline\PatientData'
-    # data_dir = r'C:\Users\sidha\OneDrive\Sid Stuff\PROJECTS\iMEDS Design Team\Data Analysis\PedAccel\data_analysis\PythonPipeline\PatientData'
-    # data_dir = r'C:\Users\jakes\Documents\DT 6 Analysis\PythonCode\PedAccel\data_analysis\PythonPipeline\PatientData'
-    window_size_in = 16
-    lead_time_in = 15
-    tag = "Nurse1"
+    data_dir = r'C:\Users\HP\Documents\JHU_Academics\Research\DT 6\NewPedAccel\VentilatedPatientData'
 
-    # load_segment_sickbay(data_dir, window_size_in, lead_time_in, tag)
+    # Define global Variables
+    heart_rate = []
+    SpO2 = []
+    respiratory_rate = []
+    blood_pressure_systolic = []
+    blood_pressure_mean = []
+    blood_pressure_diastolic = []
 
-    final_time = pd.Timestamp('2025-01-01 09:00:00') # Some TimeStamp Object
-    load_and_segment_data_mat(data_dir, final_time, window_size_in, lead_time_in, tag)
+    vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
+    names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
+
+    window_size = 15
+    lead_time = 10
+
+    # tag = "Nurse"
+    tag = "Retro"
+
+    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
+
+    # load_and_segment_data_excel(data_dir, final_times_dict, window_size, lead_time, tag = tag)
+
+    load_segment_sickbay(data_dir, window_size, lead_time, tag)
+
+    load_and_segment_data_mat(data_dir, final_times_dict, window_size, lead_time, tag)
 
 
 '''
@@ -470,6 +568,7 @@ if __name__ == '__main__':
 
     2) sickbay_vitals extraction. Runs on Safe desktop and extracts vitals data for a patient. 
     3) save the gt3x file from accelerometry
+
     4) load_segment_sickbay. This will filter the vitals data, replacing nan values and erreneous values. If too many invalid values are associated with a single SBS score and 
     vitals metric (i.e. more than 5 HR values were -10), then all measurements of that vitals metric associated with that SBS score will be replaced by an array of zero, 
     serving as a flag that this particular score is invalid for this particular vitals metric later in analysis. 
