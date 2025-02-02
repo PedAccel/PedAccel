@@ -63,7 +63,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             
             # Statement to load Retrospective SBS Scores
             if(tag == "Retro"):
-                epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
+                epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '') & (epic_data['SBS'] != 'TODO')]
             
             # Print the number of rows before dropping NaN values
             print(f"Number of rows before dropping NaN: {epic_data.shape[0]}")
@@ -455,9 +455,6 @@ def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time
             print(acti_data.shape)
             print(acti_names)
         
-
-
-
             epic_data, epic_names = load_from_excel(sbs_file)
             epic_data.dropna(subset=['SBS'], inplace = True) # drop rows with missing SBS scores
             print(epic_data.shape)
@@ -531,9 +528,10 @@ if __name__ == '__main__':
     *** You must run load_segment_sickbay prior to load_and_segment_data_mat
     '''
 
-    data_dir = r'C:\Users\HP\Documents\JHU_Academics\Research\DT 6\NewPedAccel\VentilatedPatientData'
+    # data_dir = r'C:\Users\HP\Documents\JHU_Academics\Research\DT 6\NewPedAccel\VentilatedPatientData'
+    data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
 
-    # Define global Variables
+    # Define global variables
     heart_rate = []
     SpO2 = []
     respiratory_rate = []
@@ -544,8 +542,8 @@ if __name__ == '__main__':
     vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
     names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
 
-    window_size = 15
-    lead_time = 10
+    window_size = 16
+    lead_time = 15
 
     # tag = "Nurse"
     tag = "Retro"
@@ -555,7 +553,6 @@ if __name__ == '__main__':
     # load_and_segment_data_excel(data_dir, final_times_dict, window_size, lead_time, tag = tag)
 
     load_segment_sickbay(data_dir, window_size, lead_time, tag)
-
     load_and_segment_data_mat(data_dir, final_times_dict, window_size, lead_time, tag)
 
 
