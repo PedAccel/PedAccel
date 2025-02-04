@@ -30,7 +30,7 @@ def load_ventilator_data():
     # Define features for extraction
     desired_features = [
         'Ventilator start/stop',
-        'Set Rate',
+        'Set Rate (bpm)',
         'Set PEEP',
         'Set/Target Tidal Volume',
         'Vent FiO2',

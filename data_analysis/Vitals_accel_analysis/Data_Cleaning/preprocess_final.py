@@ -389,8 +389,7 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
             print(x_mag.shape)
             print(sbs.shape)
 
-            matched_start_times_str = [ts.isoformat() for ts in matched_start_times]
-
+            # matched_start_times_str = [ts.isoformat() for ts in matched_start_times]
 
             save_file = os.path.join(patient_dir, vitals_sbs_file)
 
@@ -407,9 +406,10 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
                 sliced_data = slice_data_by_time(data_dict, final_time) #Assumes final_time and start_time are TimeStamp Objects
             else: 
                 sliced_data = data_dict
+            
+            sliced_data['start_time'] = [ts.isoformat() for ts in sliced_data['start_time']]
 
             savemat(save_file, sliced_data)
-
 
 def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time=10, tag = ""):
     '''
@@ -514,8 +514,6 @@ def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time
 
             savemat(save_file, sliced_data) 
 
-
-
 if __name__ == '__main__':
     '''
     Set the following:
@@ -552,9 +550,8 @@ if __name__ == '__main__':
 
     # load_and_segment_data_excel(data_dir, final_times_dict, window_size, lead_time, tag = tag)
 
-    load_segment_sickbay(data_dir, window_size, lead_time, tag)
+    # load_segment_sickbay(data_dir, window_size, lead_time, tag)
     load_and_segment_data_mat(data_dir, final_times_dict, window_size, lead_time, tag)
-
 
 '''
     Data extraction Piepline Summary:

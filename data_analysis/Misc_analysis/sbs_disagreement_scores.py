@@ -9,7 +9,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 from sklearn.metrics import cohen_kappa_score
 
-data_dir = r'\PatientData'
+data_dir = r
 
 def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
     # Load data from Excel file
@@ -109,3 +109,7 @@ def sbs_disagreement():
             print(f"Exact Agreement: {exact_agreement:.2f}%")
             print(f"Cohen's Kappa: {kappa:.2f}")
             print(f"Intraclass Correlation Coefficient: {icc:.2f}")
+
+            return
+
+sbs_disagreement()

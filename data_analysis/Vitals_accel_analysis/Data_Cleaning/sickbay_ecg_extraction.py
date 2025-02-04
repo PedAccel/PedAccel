@@ -37,14 +37,14 @@ def load_sickbay_mar(window_size, lead_time):
         patient_directory = os.path.join(base_directory, str(patient_mrn) + '_Study57_Tag123_EventList')
         print(patient_directory)
 
-        sbs_file = os.path.join(patient_directory, f'Patient{patient_num}_Retro_SBS_Scores.xlsx')
+        sbs_file = os.path.join(patient_directory, f'Patient{patient_num}_SBS_Scores_Retro.xlsx')
         if not os.path.isfile(sbs_file):
             raise FileNotFoundError(f'SBS Scores not found: {sbs_file}')
 
         epic_data, epic_names = load_from_excel(sbs_file)
-
-        # Statement for retrospective SBS Scores
-        epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
+        
+        # For Retro Scores
+        epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '') & (epic_data['SBS'] != 'TODO')]
 
         epic_data.dropna(subset=['SBS'], inplace=True)
         epic_data['dts'] = pd.to_datetime(epic_data['Time_uniform'], format='mixed')
@@ -52,9 +52,10 @@ def load_sickbay_mar(window_size, lead_time):
         epic_data['end_time'] = epic_data['dts'] + pd.Timedelta(window_size - lead_time, 'minutes')
         print(len(epic_data))
         
-        mat_file_path = os.path.join(patient_directory, f'Patient{patient_num}_{lead_time}MIN_{window_size - lead_time}MIN_ECG_SBSFinal.mat')
+        mat_file_path = os.path.join(patient_directory, f'Patient{patient_num}_{lead_time}MIN_{window_size - lead_time}MIN_ECG_SBSRetro.mat')
         existing_data = {
             'sbs_score': np.array([]),
+            'prn': np.array([]),
             'start_time': np.array([], dtype='datetime64[ns]'),
             'end_time': np.array([], dtype='datetime64[ns]'),
             'ecg1': np.array([]),
@@ -67,6 +68,7 @@ def load_sickbay_mar(window_size, lead_time):
             start_time = row['start_time']
             end_time = row['end_time']
             sbs_score = row['SBS']
+            prn = row['SedPRN']
 
             ecg_data = {'ecg1': [], 'ecg2': [], 'ecg3': []}
 
@@ -82,10 +84,7 @@ def load_sickbay_mar(window_size, lead_time):
                         chunk_counter = 0  # Initialize a counter for chunks
                         
                         for chunk in chunk_iter:
-
-                            # chunk['Time'] = pd.to_datetime(chunk['Time'])
                             chunk['Time_uniform'] = pd.to_datetime(chunk['Time'])
-
                             # chunk['Time_uniform'] = chunk['Time'].dt.strftime("%m/%d/%Y %I:%M:%S %p")
                             mask = (chunk['Time_uniform'] >= start_time) & (chunk['Time_uniform'] <= end_time)
                             if mask.any():
@@ -99,6 +98,7 @@ def load_sickbay_mar(window_size, lead_time):
                             existing_data['sbs_score'] = np.append(existing_data['sbs_score'], sbs_score)
                             existing_data['start_time'] = np.append(existing_data['start_time'], start_time.to_datetime64())
                             existing_data['end_time'] = np.append(existing_data['end_time'], end_time.to_datetime64())
+                            existing_data['prn'] = np.append(existing_data['prn'], prn)
 
                             for ecg_key in ['ecg1', 'ecg2', 'ecg3']:
                                 ecg_segment = np.array(ecg_data[ecg_key]).reshape(1, -1)
