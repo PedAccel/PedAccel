@@ -7,7 +7,7 @@ Extracts ECG data from SickBay CSV files and saves them as .mat files
 import pandas as pd
 import numpy as np
 from openpyxl import load_workbook
-from scipy.io import savemat
+from scipy.io import savemat, loadmat
 import os
 
 directory = os.chdir(r'S:\Sedation_monitoring\Sickbay_extract\Extract_250Hz')
@@ -37,19 +37,23 @@ def load_sickbay_mar(window_size, lead_time):
         patient_directory = os.path.join(base_directory, str(patient_mrn) + '_Study57_Tag123_EventList')
         print(patient_directory)
 
-        sbs_file = os.path.join(patient_directory, f'Patient{patient_num}_SBS_Scores.xlsx')
+        sbs_file = os.path.join(patient_directory, f'Patient{patient_num}_Retro_SBS_Scores.xlsx')
         if not os.path.isfile(sbs_file):
             raise FileNotFoundError(f'SBS Scores not found: {sbs_file}')
 
         epic_data, epic_names = load_from_excel(sbs_file)
+
+        # Statement for retrospective SBS Scores
+        epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '')]
+
         epic_data.dropna(subset=['SBS'], inplace=True)
         epic_data['dts'] = pd.to_datetime(epic_data['Time_uniform'], format='mixed')
         epic_data['start_time'] = epic_data['dts'] - pd.Timedelta(lead_time, 'minutes')
         epic_data['end_time'] = epic_data['dts'] + pd.Timedelta(window_size - lead_time, 'minutes')
         print(len(epic_data))
         
-        mat_file_path = os.path.join(patient_directory, f'Patient{patient_num}_ECG_SBSFinal.mat')
-        initial_data = {
+        mat_file_path = os.path.join(patient_directory, f'Patient{patient_num}_{lead_time}MIN_{window_size - lead_time}MIN_ECG_SBSFinal.mat')
+        existing_data = {
             'sbs_score': np.array([]),
             'start_time': np.array([], dtype='datetime64[ns]'),
             'end_time': np.array([], dtype='datetime64[ns]'),
@@ -57,7 +61,7 @@ def load_sickbay_mar(window_size, lead_time):
             'ecg2': np.array([]),
             'ecg3': np.array([])
         }
-        savemat(mat_file_path, initial_data)
+        savemat(mat_file_path, existing_data)
 
         for index, row in epic_data.iterrows():
             start_time = row['start_time']
@@ -79,15 +83,18 @@ def load_sickbay_mar(window_size, lead_time):
                         
                         for chunk in chunk_iter:
 
-                            chunk['Time'] = pd.to_datetime(chunk['Time'])
-                            chunk['Time_uniform'] = chunk['Time'].dt.strftime("%m/%d/%Y %I:%M:%S %p")
+                            # chunk['Time'] = pd.to_datetime(chunk['Time'])
+                            chunk['Time_uniform'] = pd.to_datetime(chunk['Time'])
+
+                            # chunk['Time_uniform'] = chunk['Time'].dt.strftime("%m/%d/%Y %I:%M:%S %p")
                             mask = (chunk['Time_uniform'] >= start_time) & (chunk['Time_uniform'] <= end_time)
                             if mask.any():
                                 ecg_data['ecg1'].extend(chunk.loc[mask, 'GE_WAVE_ECG_1_ID'].tolist())
                                 ecg_data['ecg2'].extend(chunk.loc[mask, 'GE_WAVE_ECG_2_ID'].tolist())
                                 ecg_data['ecg3'].extend(chunk.loc[mask, 'GE_WAVE_ECG_3_ID'].tolist())
 
-                            existing_data = savemat(mat_file_path)
+                            savemat(mat_file_path, existing_data)
+                            # existing_data = savemat(mat_file_path)
 
                             existing_data['sbs_score'] = np.append(existing_data['sbs_score'], sbs_score)
                             existing_data['start_time'] = np.append(existing_data['start_time'], start_time.to_datetime64())
