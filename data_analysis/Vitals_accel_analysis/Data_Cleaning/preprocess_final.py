@@ -13,6 +13,7 @@ from scipy.io import savemat
 from functools import reduce
 from scipy.io import loadmat
 import filtering
+import gc
 
 
 def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
@@ -63,7 +64,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             
             # Statement to load Retrospective SBS Scores
             if(tag == "Retro"):
-                epic_data = epic_data[(epic_data['Default'] != 'Y') & (epic_data['SBS'] != '') & (epic_data['SBS'] != 'TODO')]
+                epic_data = epic_data[(epic_data['SBS'] != '') & (epic_data['SBS'] != 'TODO')] # (epic_data['Default'] != 'Y') & 
             
             # Print the number of rows before dropping NaN values
             print(f"Number of rows before dropping NaN: {epic_data.shape[0]}")
@@ -103,6 +104,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
                                            , 'blood_pressure_systolic': vitals_data['blood_pressure_systolic'], 'blood_pressure_mean': vitals_data['blood_pressure_mean']
                                            , 'blood_pressure_diastolic': vitals_data['blood_pressure_diastolic']})
             sbs = []
+            default = []
 
             print(vitals_data_df.head(5))
 
@@ -126,6 +128,11 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
                     end_time.append(end_time_cur)
                     if tag == "Retro":
                         PRNs.append(row['SedPRN'])
+
+                        if row['Default'] ==  'Y':
+                            default.append('Y')
+                        else:
+                            default.append('N')
                     # Calculate the relative time within the window
                     in_window['dts'] = in_window['dts'] - row['start_time']
 
@@ -146,6 +153,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             sbs = np.array(sbs)
             start_time = pd.to_datetime(start_time)
             end_time = pd.to_datetime(end_time)
+            default = np.array(default)
             
             # Further processing and saving...
             print('Save to file')
@@ -225,6 +233,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             filtered_dict_final['start_time'] = np.array(start_time_str, dtype=object)
             filtered_dict_final['end_time'] = np.array(end_time_str, dtype=object)
             filtered_dict_final['sbs'] = np.array(vitals_SBS)
+            filtered_dict_final['default'] = np.array(default)
 
             savemat(save_file, filtered_dict_final, appendmat = False)
             print(f"{patient} has {count} SBS scores where vitals data does not line up in the time window")
@@ -276,7 +285,7 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
     # search for patient directories in the data directory
     for patient in os.listdir(data_dir):
-
+        print(f'Patient: {patient}')
         final_time = final_times_dict[patient]
 
         # filter out non-directories
@@ -306,6 +315,7 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
             vitals_data = loadmat(vitals_sbs_file)
             # print(vitals_data)
             SBS = vitals_data['sbs'].flatten()
+            default = vitals_data['default'].flatten()
             if tag == 'Retro':
                 SedPRN = vitals_data['SedPRN'].flatten()
             # Flatten the nested arrays
@@ -321,7 +331,8 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
                     'SBS': SBS,
                     'start_time': start_time,
                     'end_time': end_time, 
-                    'SedPRN' : SedPRN
+                    'SedPRN' : SedPRN,
+                    'Default' : default
                 })
             else: 
                 epic_data = pd.DataFrame({
@@ -335,6 +346,7 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
             print(acti_data.columns)
             windows = []
             sbs = []
+            default_accel = []
             
             hr = vitals_data['hr']
             SpO2 = vitals_data['spo2']
@@ -361,6 +373,11 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
                     matched_end_times.append(row['end_time'])
                     if tag == "Retro":
                         PRNs.append(row["SedPRN"])
+                    if row['Default'] == 'Y':
+                        default_accel.append('Y')
+                    else:
+                        default_accel.append('N')
+                        
                 else:
                     # vitals_df.drop(index=i, inplace=True)
                     hr[i, :] = np.nan
@@ -396,7 +413,7 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
             if tag == "Retro":
                 data_dict = dict([('x_mag', x_mag), ('heart_rate', hr), 
                                      ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
-                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times), ('PRNs', PRNs)])
+                                     ('blood_pressure_mean', bpm), ('blood_pressure_diastolic', bpd), ('sbs', sbs), ('start_time', matched_start_times), ('PRNs', PRNs), ('Default', default_accel)])
             else: 
                 data_dict = dict([('x_mag', x_mag), ('heart_rate', hr), 
                             ('SpO2', SpO2), ('respiratory_rate', rr), ('blood_pressure_systolic', bps), 
@@ -410,6 +427,8 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
             sliced_data['start_time'] = [ts.isoformat() for ts in sliced_data['start_time']]
 
             savemat(save_file, sliced_data)
+
+            print("Processing Complete")
 
 def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time=10, tag = ""):
     '''
@@ -429,6 +448,7 @@ def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time
     '''
     # search for patient directories in the data directory
     for patient in os.listdir(data_dir):
+        print(f'Patient: {patient}')
         final_time = final_times[patient]
         # filter out non-directories
         patient_dir = os.path.join(data_dir, patient)
@@ -503,16 +523,8 @@ def load_and_segment_data_excel(data_dir, final_times, window_size=10, lead_time
             filename = f'{patient}_{lead_time}MIN_{window_size - lead_time}MIN_Accel_{tag}.mat'
             save_file = os.path.join(patient_dir, filename)
 
-            if final_time is not None and tag == "Retro":
-                sliced_data = slice_data_by_time(dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times), ('PRN', PRNs)]), final_time) #Assumes final_time and start_time are TimeStamp Objects
-            elif tag == "Retro": 
-                sliced_data = dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times), ('PRN_Times', PRNs)])
-            elif final_time is not None and tag != "Retro": 
-                sliced_data = slice_data_by_time(dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times)]), final_time) #Assumes final_time and start_time are TimeStamp Objects
-            else: 
-                sliced_data = dict([('x_mag', x_mag), ('sbs', sbs), ('start_time', start_times)])
-
-            savemat(save_file, sliced_data) 
+            del sliced_data
+            gc.collect()
 
 if __name__ == '__main__':
     '''
@@ -545,13 +557,13 @@ if __name__ == '__main__':
 
     # tag = "Nurse"
     tag = "Retro"
-
     final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
 
-    # load_and_segment_data_excel(data_dir, final_times_dict, window_size, lead_time, tag = tag)
 
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
     load_and_segment_data_mat(data_dir, final_times_dict, window_size, lead_time, tag)
+
+    # add try catch block for naming
 
 '''
     Data extraction Piepline Summary:
