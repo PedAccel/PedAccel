@@ -30,12 +30,35 @@ def load_mar_data(data_dir, pat_num):
     df.rename(columns={'mar_time': 'time'}, inplace=True)
     df = df[['time', 'dose', 'mar_action', 'med_name']]
     df['time'] = format_times(df['time'])
+    df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
 
     return df
 
 def load_sickbay_data(data_dir, pat_num):
     """
-    Loads SickBay data from a .csv file and returns it as a pandas DataFrame.
+    Loads SickBay data from a .mat file and returns it as a pandas DataFrame.
+
+    Parameters:
+        data_dir (str): Path to the directory containing the .mat file.
+        pat_num (int): Patient number. 
+
+    Returns:
+        pd.DataFrame: DataFrame containing SickBay data.
+    """
+    file_path = os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_SickBayData.mat')
+
+    raw_data = load_mat_file(file_path)
+
+    df = pd.DataFrame(raw_data)
+
+    df['time'] = format_times(df['time'])
+    df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
+
+    return df
+
+def load_sickbay_formatted_data(data_dir, pat_num):
+    """
+    Loads SickBay data from a .mat file and returns it as a pandas DataFrame.
 
     Parameters:
         data_dir (str): Path to the directory containing the .mat file.
@@ -61,10 +84,11 @@ def load_sickbay_data(data_dir, pat_num):
 
     sickbay_df['start_time'] = format_times(sickbay_df['start_time'])
     sickbay_df['end_time'] = format_times(sickbay_df['end_time'])
+    df = df.sort_values(by='start_time', ascending=True).reset_index(drop=True)
 
     return sickbay_df
 
-def load_acel_data(data_dir, pat_num):
+def load_accel_data(data_dir, pat_num):
     """
     Loads accelerometer data from a .gt3x file and returns it as a pandas DataFrame.
     
@@ -79,9 +103,44 @@ def load_acel_data(data_dir, pat_num):
 
     df = load_gt3x_file(file_path)
 
-    df = df[df["IdleSleepMode"] != True].reset_index(drop=True)
+    df = df[df["IdleSleepMode"] != True]
     df.rename(columns={'Timestamp': 'time'}, inplace=True)
     df['time'] = format_times(df['time'])
+    df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
+
+    return df
+
+def load_ecg_data(data_dir, pat_num):
+    """
+    Loads ECG data from a .csv file and returns it as a pandas DataFrame.
+    
+    Parameters:
+        data_dir (str): Path to the directory containing the .mat file.
+        pat_num (int): Patient number.
+        
+    Returns:
+        pd.DataFrame: DataFrame containing ECG data.
+    """
+    file_path = os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_10MIN_5MIN_ECG_SBSFinal.mat')
+
+    raw_data = load_mat_file(file_path)
+
+    df = pd.DataFrame(raw_data)
+
+    df['start_time'] = format_times(df['start_time'])
+    df['end_time'] = format_times(df['end_time'])
+    df = df.sort_values(by='start_time', ascending=True).reset_index(drop=True)
+
+    return df
+
+def load_retro_data(data_dir, pat_num):
+    df = pd.read_csv(os.path.join(data_dir, 'Patient{pat_num}', f'Patient{pat_num}_SBS_Scores_Retro.csv'))
+    
+    df = df.dropna(axis=0, how='all')
+    df = df.dropna(axis=1, how='all')
+    df.insert(0, 'time', format_times(df['Time_uniform']))
+    df.drop(columns=['Time_uniform', 'Datetime'], inplace=True)
+    df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
 
     return df
 
@@ -192,6 +251,11 @@ def format_times(times):
                 t[i] = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S')
             except:
                 raise ValueError(f'Unrecognized date format: {time}')
+        elif 'M' in time:
+            try:
+                t[i] = datetime.strptime(time, '%m/%d/%Y %I:%M:%S %p')
+            except:
+                raise ValueError(f'Unrecognized date format: {time}')
         else:
             try:
                 t[i] = datetime.strptime(time, '%m/%d/%y %H:%M')
@@ -271,21 +335,27 @@ def match_times_startend_startend(df1, df2):
 
 def main():
     data_dir = os.path.join(os.path.dirname(__file__), "../data")
-    pat_nums = [4]
+    pat_nums = [9]
 
     for pat_num in tqdm(pat_nums):
-        # mar = load_mar_data(data_dir, pat_num)
-        # sickbay = load_sickbay_data(data_dir, pat_num)
-        # matched = match_times(mar, sickbay)
+        mar = load_mar_data(data_dir, pat_num)
+        sickbay = load_sickbay_data(data_dir, pat_num)
+        accel = load_accel_data(data_dir, pat_num)
 
-        # print(matched.keys())
-        # print(matched.shape)
-        # print(matched.head())
+        print(mar.keys())
+        print(mar.shape)
+        print(mar.head())
+        print(mar.tail())
 
-        accel = load_acel_data(data_dir, pat_num)
+        print(sickbay.keys())
+        print(sickbay.shape)
+        print(sickbay.head())
+        print(sickbay.tail())
+
         print(accel.keys())
         print(accel.shape)
         print(accel.head())
+        print(accel.tail())
 
 if __name__ == "__main__":
     main()

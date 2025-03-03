@@ -4,6 +4,10 @@ import numpy as np
 import neurokit2 as nk
 from tqdm import tqdm
 from scipy.io import loadmat
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from matplotlib import pyplot as plt
 
 def load_data(file_path):
     raw_data = loadmat(file_path)
@@ -139,6 +143,79 @@ def save_metrics(file_path, pat_num, save=False):
 
     return df_ecg1, df_ecg2, df_ecg3
 
+def standardize_data(df_ecg):
+    if df_ecg.isna().any().any():
+        df_ecg.dropna(inplace=True)
+
+    for key in df_ecg.keys():
+        df_ecg[key] = StandardScaler().fit_transform(df_ecg[key].values.reshape(-1, 1))
+    
+    return df_ecg
+
+def split_data(df_ecg):
+    df_ecg = df_ecg.dropna(axis='columns')
+
+    X = df_ecg.drop(columns=['SBS_SCORE'])
+
+    y = df_ecg['SBS_SCORE']
+    X = df_ecg.drop(columns=['SBS_SCORE'])
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+
+    X_train = standardize_data(X_train)
+    X_test = standardize_data(X_test)
+
+    return X_train, X_test, y_train, y_test
+
+def get_pca(df_ecg, pat_num=None, ecg_num=None, n_components=2, save=False):
+    X_train, X_test, y_train, y_test = split_data(df_ecg)
+    
+    X = pd.concat([X_train, X_test])
+
+    if n_components is None:
+        n_components = min(X.shape[0], X.shape[1])
+    
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X)
+
+    if save and pat_num is not None and ecg_num is not None:
+        df = pd.DataFrame(data=X_pca, columns=[f'PC{i+1}' for i in range(n_components)])
+        df['SBS_SCORE'] = pd.concat([y_train, y_test]).values
+        output_path = os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_pca.csv')
+        df.to_csv(output_path, index=False)
+        print(f'Saved PCA data at {output_path}')
+        
+    return pca
+
+def plot_pca(df_ecg, pat_num=None, ecg_num=None, n_components=None, save=False, show=False):
+    X_train, X_test, y_train, y_test = split_data(df_ecg)
+
+    X = pd.concat([X_train, X_test])
+    y = pd.concat([y_train, y_test])
+
+    pca = PCA(n_components=n_components)
+    X_pca = pca.fit_transform(X)
+
+    plt.figure(figsize=(8, 6))
+    color_map = {-3: 'purple', -2: 'blue', -1: 'green', 0: 'yellow', 1: 'orange', 2: 'red'}
+    for category, color in color_map.items():
+        indices = y == category
+        plt.scatter(X_pca[indices, 0], X_pca[indices, 1], color=color, label=str(category), edgecolor='k', s=80)
+
+    plt.xlabel('PC1')
+    plt.ylabel('PC2')
+    plt.title('Principal Component Analysis')
+    plt.legend(title='SBS_SCORE')
+    plt.grid()
+
+    if save and pat_num is not None and ecg_num is not None:
+        output_path = os.path.join(os.path.dirname(__file__), 'output', f'pat{pat_num}_ecg{ecg_num}_pca_plot.png')
+        plt.savefig(os.path.join(os.path.dirname(__file__), 'output', output_path))
+        print(f'Saved PCA plot at {output_path}')
+
+    if show:
+        plt.show()
+
 def main():
     output_dir = os.path.join(os.path.dirname(__file__), 'output')
     data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -149,7 +226,7 @@ def main():
         print('Data directory does not exist')
         return
 
-    pat_nums = [3, 4, 5, 6, 8, 9, 13]
+    pat_nums = [4, 5, 6, 8, 9, 13]
 
     for i in tqdm(pat_nums):
         pat_num = 'pat' + str(i) + '_'
@@ -159,7 +236,23 @@ def main():
             pass
 
         if not os.path.exists(os.path.join(output_dir, pat_num+'df_ecg1.csv')) or not os.path.exists(os.path.join(output_dir, pat_num+'df_ecg2.csv')) or not os.path.exists(os.path.join(output_dir, pat_num+'df_ecg3.csv')):
-            _, _, _ = save_metrics(file_path, pat_num, True)
-    
-if __name__ == "__main__":
+            df_ecg1, df_ecg2, df_ecg3 = save_metrics(file_path, pat_num, True)
+        else:
+            df_ecg1 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg1.csv'))
+            df_ecg2 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg2.csv'))
+            df_ecg3 = pd.read_csv(os.path.join(output_dir, pat_num+'df_ecg3.csv'))
+        
+        print('ECG1 :')
+        get_pca(df_ecg1, i, 1, None, save=True)
+        plot_pca(df_ecg1, i, 1, 2, save=True, show=False)
+
+        print('ECG2 :')
+        get_pca(df_ecg2, i, 2, None, save=True)
+        plot_pca(df_ecg2, i, 2, 2, save=True, show=False)
+
+        print('ECG3 :')
+        get_pca(df_ecg3, i, 3, None, save=True)
+        plot_pca(df_ecg3, i, 3, 2, save=True, show=False)
+
+if __name__ == '__main__':
     main()
