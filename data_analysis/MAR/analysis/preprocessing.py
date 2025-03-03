@@ -99,6 +99,11 @@ def load_accel_data(data_dir, pat_num):
     Returns:
         pd.DataFrame: DataFrame containing accelerometer data.
     """
+    if os.path.exists(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv')):
+        df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'))
+        return df
+
+
     file_path = os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.gt3x')
 
     df = load_gt3x_file(file_path)
@@ -107,8 +112,30 @@ def load_accel_data(data_dir, pat_num):
     df.rename(columns={'Timestamp': 'time'}, inplace=True)
     df['time'] = format_times(df['time'])
     df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
+    
+    df = process_accel_data(df)
+    df.to_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'), index=False)
 
     return df
+
+def process_accel_data(df):
+    """
+    Finds the magnitude of the acceleration vector and averages it over 100 samples.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing accelerometer data.
+
+    Returns:
+        pd.DataFrame: DataFrame containing processed accelerometer data.
+    """
+    df['a'] = np.sqrt(df['X']**2 + df['Y']**2 + df['Z']**2)
+    new_df = pd.DataFrame(np.zeros((int(len(df)/100), 2)), columns=['time', 'a'])
+
+    for i in range(len(new_df)):
+        new_df.loc[i, 'time'] = df['time'].iloc[i*100]
+        new_df.loc[i, 'a'] = np.average(df['a'].iloc[i*100:(i+1)*100])
+
+    return new_df
 
 def load_ecg_data(data_dir, pat_num):
     """
