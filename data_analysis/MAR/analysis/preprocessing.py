@@ -99,10 +99,11 @@ def load_accel_data(data_dir, pat_num):
     Returns:
         pd.DataFrame: DataFrame containing accelerometer data.
     """
-    if os.path.exists(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv')):
-        df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'))
-        return df
-
+    # if os.path.exists(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv')):
+    #     df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'))
+        # df['time'] = pd.to_datetime(df['time'])
+        # df['time'] = format_times(df['time'])
+    #     return df
 
     file_path = os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.gt3x')
 
@@ -113,8 +114,8 @@ def load_accel_data(data_dir, pat_num):
     df['time'] = format_times(df['time'])
     df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
     
-    df = process_accel_data(df)
-    df.to_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'), index=False)
+    # df = process_accel_data(df)
+    # df.to_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'), index=False)
 
     return df
 
