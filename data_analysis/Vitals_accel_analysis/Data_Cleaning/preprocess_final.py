@@ -539,7 +539,8 @@ if __name__ == '__main__':
     '''
 
     # data_dir = r'C:\Users\HP\Documents\JHU_Academics\Research\DT 6\NewPedAccel\VentilatedPatientData'
-    data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
+    # data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
+    data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
 
     # Define global variables
     heart_rate = []
