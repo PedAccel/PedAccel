@@ -162,7 +162,7 @@ def load_ecg_data(data_dir, pat_num):
     return df
 
 def load_retro_data(data_dir, pat_num):
-    df = pd.read_csv(os.path.join(data_dir, 'Patient{pat_num}', f'Patient{pat_num}_SBS_Scores_Retro.csv'))
+    df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_SBS_Scores_Retro.csv'))
     
     df = df.dropna(axis=0, how='all')
     df = df.dropna(axis=1, how='all')
@@ -369,21 +369,6 @@ def main():
         mar = load_mar_data(data_dir, pat_num)
         sickbay = load_sickbay_data(data_dir, pat_num)
         accel = load_accel_data(data_dir, pat_num)
-
-        print(mar.keys())
-        print(mar.shape)
-        print(mar.head())
-        print(mar.tail())
-
-        print(sickbay.keys())
-        print(sickbay.shape)
-        print(sickbay.head())
-        print(sickbay.tail())
-
-        print(accel.keys())
-        print(accel.shape)
-        print(accel.head())
-        print(accel.tail())
 
 if __name__ == "__main__":
     main()
