@@ -119,22 +119,38 @@ def load_accel_data(data_dir, pat_num):
 
     return df
 
-def process_accel_data(df):
+def process_accel_data(df, save=None):
     """
     Finds the magnitude of the acceleration vector and averages it over 100 samples.
 
     Parameters:
         df (pd.DataFrame): DataFrame containing accelerometer data.
+        save (str, optional): Path to save the processed data. Defaults to None.
 
     Returns:
         pd.DataFrame: DataFrame containing processed accelerometer data.
     """
-    df['a'] = np.sqrt(df['X']**2 + df['Y']**2 + df['Z']**2)
-    new_df = pd.DataFrame(np.zeros((int(len(df)/100), 2)), columns=['time', 'a'])
+    new_df = pd.DataFrame(index=range(len(df) // 200), columns=['time', 'x', 'y', 'z'])
+    new_df['time'] = pd.to_datetime(new_df['time'])
+    new_df['x'] = new_df['x'].astype(float)
+    new_df['y'] = new_df['y'].astype(float)
+    new_df['z'] = new_df['z'].astype(float)
 
-    for i in range(len(new_df)):
-        new_df.loc[i, 'time'] = df['time'].iloc[i*100]
-        new_df.loc[i, 'a'] = np.average(df['a'].iloc[i*100:(i+1)*100])
+    for i in tqdm(range(len(new_df))):
+        new_df.loc[i, 'time'] = df['time'].iloc[i*200]
+
+        interval = range(i*200, i*200 + 10)
+
+        new_df.loc[i, 'x'] = np.average(df['X'].iloc[interval])
+        new_df.loc[i, 'y'] = np.average(df['Y'].iloc[interval])
+        new_df.loc[i, 'z'] = np.average(df['Z'].iloc[interval])
+
+    new_df['time'] = new_df['time'].dt.floor('2s')
+    
+    new_df['a'] = np.sqrt(new_df['x']**2 + new_df['y']**2 + new_df['z']**2)
+
+    if save is not None:
+        new_df.to_csv(os.path.join(save, index=False))
 
     return new_df
 
@@ -161,11 +177,15 @@ def load_ecg_data(data_dir, pat_num):
 
     return df
 
-def load_retro_data(data_dir, pat_num):
+def load_retro_data(data_dir, pat_num, ignore_default=False):
     df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_SBS_Scores_Retro.csv'))
     
     df = df.dropna(axis=0, how='all')
     df = df.dropna(axis=1, how='all')
+
+    if ignore_default:
+        df = df[df['Default'] != 'Y']
+
     df.insert(0, 'time', format_times(df['Time_uniform']))
     df.drop(columns=['Time_uniform', 'Datetime'], inplace=True)
     df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
