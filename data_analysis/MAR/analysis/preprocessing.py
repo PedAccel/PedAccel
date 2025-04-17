@@ -84,7 +84,7 @@ def load_sickbay_formatted_data(data_dir, pat_num):
 
     sickbay_df['start_time'] = format_times(sickbay_df['start_time'])
     sickbay_df['end_time'] = format_times(sickbay_df['end_time'])
-    df = df.sort_values(by='start_time', ascending=True).reset_index(drop=True)
+    sickbay_df = sickbay_df.sort_values(by='start_time', ascending=True).reset_index(drop=True)
 
     return sickbay_df
 
