@@ -1,6 +1,33 @@
 import numpy as np
 import pandas as pd
 
+def classes():
+    """
+    Define the classes of medications used in the analysis.
+
+    Returns:
+        pd.DataFrame: DataFrame containing the classes of medications.
+    """
+    narcotics = ['fentanyl', 'morphine', 'hydromorphone', 'oxycodone', 'methadone', 'remifentanil']
+    paralytics = ['rocuronium', 'vecuronium', 'succinylcholine', 'cisatracurium']
+    alpha_agonists = ['dexmedetomidine', 'clonidine']
+    ketamines = ['ketamine']
+    propofols = ['propofol']
+    etomidates = ['etomidate']
+    benzodiazepines = ['midazolam', 'diazepam', 'lorazepam']
+
+    classes = pd.DataFrame({
+        'narcotics': narcotics,
+        'paralytics': paralytics,
+        'alpha_agonists': alpha_agonists,
+        'ketamines': ketamines,
+        'propofols': propofols,
+        'etomidates': etomidates,
+        'benzodiazepines': benzodiazepines
+    })
+
+    return classes
+
 def filter_mar(mar):
     """
     Filter the MAR DataFrame.
@@ -121,3 +148,9 @@ def calculate_concentrations(df, elimination_rate, start_time=None, end_time=Non
     concentration_df['concentration'] = concentrations
 
     return concentration_df
+
+def main():
+    pass
+
+if __name__ == "__main__":
+    main()

@@ -99,11 +99,6 @@ def load_accel_data(data_dir, pat_num):
     Returns:
         pd.DataFrame: DataFrame containing accelerometer data.
     """
-    # if os.path.exists(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv')):
-    #     df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'))
-        # df['time'] = pd.to_datetime(df['time'])
-        # df['time'] = format_times(df['time'])
-    #     return df
 
     file_path = os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.gt3x')
 
@@ -113,13 +108,10 @@ def load_accel_data(data_dir, pat_num):
     df.rename(columns={'Timestamp': 'time'}, inplace=True)
     df['time'] = format_times(df['time'])
     df = df.sort_values(by='time', ascending=True).reset_index(drop=True)
-    
-    # df = process_accel_data(df)
-    # df.to_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'), index=False)
 
     return df
 
-def process_accel_data(df, save=None):
+def process_accel_data(data_dir, pat_num=None, save=None):
     """
     Finds the magnitude of the acceleration vector and averages it over 100 samples.
 
@@ -130,6 +122,19 @@ def process_accel_data(df, save=None):
     Returns:
         pd.DataFrame: DataFrame containing processed accelerometer data.
     """
+    if os.path.exists(save):
+        df = pd.read_csv(save)
+        df['time'] = pd.to_datetime(df['time'])
+        df['x'] = df['x'].astype(float)
+        df['y'] = df['y'].astype(float)
+        df['z'] = df['z'].astype(float)
+        df['a'] = df['a'].astype(float)
+
+        return df
+    
+    if pat_num is not None:
+        df = load_accel_data(data_dir, pat_num)
+
     new_df = pd.DataFrame(index=range(len(df) // 200), columns=['time', 'x', 'y', 'z'])
     new_df['time'] = pd.to_datetime(new_df['time'])
     new_df['x'] = new_df['x'].astype(float)
@@ -149,7 +154,7 @@ def process_accel_data(df, save=None):
     
     new_df['a'] = np.sqrt(new_df['x']**2 + new_df['y']**2 + new_df['z']**2)
 
-    if save is not None:
+    if save is not None and not os.path.exists(save):
         new_df.to_csv(os.path.join(save, index=False))
 
     return new_df
