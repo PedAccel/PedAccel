@@ -155,7 +155,7 @@ def process_accel_data(data_dir, pat_num=None, save=None):
     new_df['a'] = np.sqrt(new_df['x']**2 + new_df['y']**2 + new_df['z']**2)
 
     if save is not None and not os.path.exists(save):
-        new_df.to_csv(os.path.join(save, index=False))
+        new_df.to_csv(save, index=False)
 
     return new_df
 
@@ -171,7 +171,7 @@ def load_ecg_data(data_dir, pat_num):
         pd.DataFrame: DataFrame containing ECG data.
     """
     file_path = os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_10MIN_5MIN_ECG_SBSFinal.mat')
-
+    
     raw_data = load_mat_file(file_path)
 
     df = pd.DataFrame(raw_data)

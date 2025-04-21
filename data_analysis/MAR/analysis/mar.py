@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def classes():
     """
     Define the classes of medications used in the analysis.
 
     Returns:
-        pd.DataFrame: DataFrame containing the classes of medications.
+        dict: A dictionary containing the medication classes and their respective medications.
     """
     narcotics = ['fentanyl', 'morphine', 'hydromorphone', 'oxycodone', 'methadone', 'remifentanil']
     paralytics = ['rocuronium', 'vecuronium', 'succinylcholine', 'cisatracurium']
@@ -16,17 +17,42 @@ def classes():
     etomidates = ['etomidate']
     benzodiazepines = ['midazolam', 'diazepam', 'lorazepam']
 
-    classes = pd.DataFrame({
-        'narcotics': narcotics,
-        'paralytics': paralytics,
-        'alpha_agonists': alpha_agonists,
-        'ketamines': ketamines,
-        'propofols': propofols,
-        'etomidates': etomidates,
-        'benzodiazepines': benzodiazepines
-    })
+    classes = {'narcotics': narcotics, 
+               'paralytics': paralytics, 
+               'alpha_agonists': alpha_agonists, 
+               'ketamines': ketamines, 
+               'propofols': propofols, 
+               'etomidates': etomidates, 
+               'benzodiazepines': benzodiazepines}
 
     return classes
+
+def half_lives():
+    """
+    Define the half-lives of medications used in the analysis.
+    
+    Returns:
+        dict: A dictionary containing the half-lives of each medication in hours.
+    """
+    half_lives = {'fentanyl': 4.5, 'hydromorphone': 2.5, 'methadone': 19.5, 'morphine': 2.5,
+                  'midazolam': 1.3, 'diazepam': 18, 'lorazepam': 14, 
+                  'dexmedetomidine': 2, 'clonidine': 1.25, 
+                  'ketamine': 2.5,
+                  'propofol': 0.05,
+                  'etomidate': 0.05,}
+
+    return half_lives
+
+def elimination_rates():
+    """
+    Calculate the elimination rates based on half-lives in min^{-1}.
+    
+    Returns:
+        dict: A dictionary containing the elimination rates for each medication in min^{-1}
+    """
+    elimination_rates = {med: np.log(2) / (half_life * 60) for med, half_life in half_lives().items()}
+
+    return elimination_rates
 
 def filter_mar(mar):
     """
@@ -77,6 +103,11 @@ def filter_mar(mar):
 
     return mar_narcotics, mar_paralytics, mar_alpha_agonists, mar_ketamines, mar_propofols, mar_etomidates, mar_benzodiazepines
 
+def filter_drug(mar, drug_name):
+    mar = mar[mar['med_name'].str.lower().str.contains(drug_name, regex=True)].reset_index(drop=True)
+
+    return mar
+
 def calculate_doses(df):
     """
     Calculate the doses of continuous and bolus medications over time.
@@ -117,7 +148,7 @@ def calculate_doses(df):
 
     return dose_df
 
-def calculate_concentrations(df, elimination_rate, start_time=None, end_time=None):
+def calculate_concentrations_euler(df, elimination_rate, start_time=None, end_time=None):
     """
     Calculate the drug concentration over time based on the elimination rate and dosing regimen.
     
@@ -148,6 +179,71 @@ def calculate_concentrations(df, elimination_rate, start_time=None, end_time=Non
     concentration_df['concentration'] = concentrations
 
     return concentration_df
+
+def calculate_concentrations_rk4(df, elimination_rate, start_time=None, end_time=None):
+    """
+    Calculate the drug concentration over time using the RK4 method.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame containing time and dose information.
+        elimination_rate (float): The elimination rate of the drug.
+        start_time (str): Start time for the calculation (optional).
+        end_time (str): End time for the calculation (optional).
+    
+    Returns:
+        pd.DataFrame: DataFrame with calculated drug concentrations over time.
+    """
+    if start_time is None:
+        start_time = df['time'].iloc[0]
+    if end_time is None:
+        end_time = df['time'].iloc[-1]
+
+    concentration_df = pd.DataFrame({'time': pd.date_range(start=start_time, end=end_time, freq='T')})
+    concentration_df = concentration_df.merge(df[['time', 'dose', 'continuous_dose', 'bolus_dose']], on='time', how='left')
+    concentration_df[['dose', 'continuous_dose', 'bolus_dose']] = concentration_df[['dose', 'continuous_dose', 'bolus_dose']].fillna(0)
+
+    concentrations = [concentration_df['dose'].iloc[0]]
+
+    for i in range(1, len(concentration_df)):
+        dt = (concentration_df['time'].iloc[i] - concentration_df['time'].iloc[i-1]).total_seconds() / 60.0
+        C = concentrations[-1]
+        k1 = -elimination_rate * C + concentration_df['dose'].iloc[i]
+        k2 = -elimination_rate * (C + 0.5 * dt * k1) + concentration_df['dose'].iloc[i]
+        k3 = -elimination_rate * (C + 0.5 * dt * k2) + concentration_df['dose'].iloc[i]
+        k4 = -elimination_rate * (C + dt * k3) + concentration_df['dose'].iloc[i]
+        
+        C_new = C + (dt / 6) * (k1 + 2*k2 + 2*k3 + k4)
+        concentrations.append(C_new)
+
+    concentration_df['concentration'] = concentrations
+
+    return concentration_df
+
+def plot_concentration(df, drug_name, show=True, save=None):
+    """
+    Plot the concentration of a drug over time.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing time and concentration columns.
+        drug_name (str): Name of the drug for the plot title.
+        show (bool): Whether to show the plot. Default is True.
+        save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
+    """
+    plt.figure(figsize=(10, 6))
+    plt.plot(df['time'], df['concentration'], label=drug_name)
+    plt.xlabel('Time')
+    plt.ylabel('Concentration (ug/kg)')
+    plt.title(f'Concentration of {drug_name} over Time')
+    plt.legend()
+    plt.grid()
+
+    if save:
+        plt.savefig(save)
+    
+    if show:
+        plt.show()
+
+    plt.close()
 
 def main():
     pass
