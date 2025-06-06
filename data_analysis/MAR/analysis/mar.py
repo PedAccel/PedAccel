@@ -219,21 +219,31 @@ def calculate_concentrations_rk4(df, elimination_rate, start_time=None, end_time
 
     return concentration_df
 
-def plot_concentration(df, drug_name, show=True, save=None):
+def plot_concentration(drug_concentrations, drug_name='all', show=True, save=None):
     """
     Plot the concentration of a drug over time.
 
     Parameters:
-        df (pd.DataFrame): DataFrame containing time and concentration columns.
-        drug_name (str): Name of the drug for the plot title.
+        drug_concentrations (dict): Dictionary containing DataFrames of drug concentrations.
+        drug_name (list): List of drug names to plot.
         show (bool): Whether to show the plot. Default is True.
         save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
     """
+    if not isinstance(drug_name, list):
+        drug_name = [drug_name]
+
+    if drug_name == ['all']:
+        drug_name = drug_concentrations.keys()
+        title = ''
+    else:
+        title = ', '.join(drug_name)
+
     plt.figure(figsize=(10, 6))
-    plt.plot(df['time'], df['concentration'], label=drug_name)
+    for drug in drug_name:
+        plt.plot(drug_concentrations[drug]['time'], drug_concentrations[drug]['concentration'], label=drug)
     plt.xlabel('Time')
     plt.ylabel('Concentration (ug/kg)')
-    plt.title(f'Concentration of {drug_name} over Time')
+    plt.title(f'Concentration of {title} over time')
     plt.legend()
     plt.grid()
 

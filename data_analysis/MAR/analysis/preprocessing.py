@@ -90,6 +90,19 @@ def load_sickbay_formatted_data(data_dir, pat_num):
 
 def load_accel_data(data_dir, pat_num):
     """
+    Loads processed accelerometer data and retuns it as a pandas DataFrame.
+    
+    Parameters:
+        data_dir (str): Path to the directory containing the .mat file.
+        pat_num (int): Patient number.
+    
+    Returns:
+        pd.DataFrame: DataFrame containing processed accelerometer data.
+    """
+    return process_accel_data(data_dir, pat_num, save=os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_AccelData.csv'))
+
+def load_raw_accel_data(data_dir, pat_num):
+    """
     Loads accelerometer data from a .gt3x file and returns it as a pandas DataFrame.
     
     Parameters:
@@ -133,7 +146,7 @@ def process_accel_data(data_dir, pat_num=None, save=None):
         return df
     
     if pat_num is not None:
-        df = load_accel_data(data_dir, pat_num)
+        df = load_raw_accel_data(data_dir, pat_num)
 
     new_df = pd.DataFrame(index=range(len(df) // 200), columns=['time', 'x', 'y', 'z'])
     new_df['time'] = pd.to_datetime(new_df['time'])
