@@ -219,7 +219,7 @@ def calculate_concentrations_rk4(df, elimination_rate, start_time=None, end_time
 
     return concentration_df
 
-def plot_concentration(drug_concentrations, drug_name='all', show=True, save=None):
+def plot_concentration(drug_concentrations, drug_name='all', show=False, save=None):
     """
     Plot the concentration of a drug over time.
 
@@ -253,6 +253,47 @@ def plot_concentration(drug_concentrations, drug_name='all', show=True, save=Non
     if show:
         plt.show()
 
+    plt.close()
+
+def plot_metrics(data, show=False, save=None):
+    """
+    Plot various metrics over time.
+    
+    Parameters:
+        data (dict): Dictionary containing DataFrames for each metric.
+        show (bool): Whether to show the plot. Default is True.
+        save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
+    """
+    fig, axs = plt.subplots(3, 1, figsize=(10, 3*len(data)), sharex=True)
+
+    for ax, metric in enumerate(data):
+        if metric == "heart_rate":
+            color = 'orange'
+            ylabel = 'heart_rate (bpm)'
+        elif metric == 'respiratory_rate':
+            color = 'green'
+            ylabel = 'respiratory_rate (bpm)'
+        elif metric == 'acceleration':
+            color = 'blue'
+            ylabel = 'acceleration (g)'
+        else:
+            color = 'purple'
+            ylabel = f'{metric}'
+
+        datum = data[metric]
+        axs[ax].plot(datum['time'], datum[f'{metric}'], label=f'{metric}', color=color)
+        axs[ax].set_title(f'{metric} (1 min avg) vs time')
+        axs[ax].set_ylabel(ylabel)
+        axs[ax].legend()
+    
+    plt.tight_layout()
+    
+    if save:
+        plt.savefig(save)
+
+    if show:
+        plt.show()
+    
     plt.close()
 
 def main():

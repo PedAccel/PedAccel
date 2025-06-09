@@ -157,7 +157,7 @@ def process_accel_data(data_dir, pat_num=None, save=None):
     for i in tqdm(range(len(new_df))):
         new_df.loc[i, 'time'] = df['time'].iloc[i*200]
 
-        interval = range(i*200, i*200 + 10)
+        interval = range(i*200, (i+1)*200, 10)
 
         new_df.loc[i, 'x'] = np.average(df['X'].iloc[interval])
         new_df.loc[i, 'y'] = np.average(df['Y'].iloc[interval])
