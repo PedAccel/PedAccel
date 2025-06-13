@@ -196,6 +196,17 @@ def load_ecg_data(data_dir, pat_num):
     return df
 
 def load_retro_data(data_dir, pat_num, ignore_default=False):
+    """
+    Loads retroactive SBS scores from a .csv file and returns it as a pandas DataFrame.
+    
+    Parameters:
+        data_dir (str): Path to the directory containing the .csv file.
+        pat_num (int): Patient number.
+        ignore_default (bool): If True, ignores rows where 'Default' column is 'Y'. Defaults to False.
+
+    Returns:
+        pd.DataFrame: DataFrame containing retroactive SBS scores.
+    """
     df = pd.read_csv(os.path.join(data_dir, f'Patient{pat_num}', f'Patient{pat_num}_SBS_Scores_Retro.csv'))
     
     df = df.dropna(axis=0, how='all')

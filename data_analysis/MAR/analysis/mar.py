@@ -219,13 +219,15 @@ def calculate_concentrations_rk4(df, elimination_rate, start_time=None, end_time
 
     return concentration_df
 
-def plot_concentration(drug_concentrations, drug_name='all', show=False, save=None):
+def plot_concentration(drug_concentrations, drug_name='all', start=None, stop=None, show=False, save=None):
     """
     Plot the concentration of a drug over time.
 
     Parameters:
         drug_concentrations (dict): Dictionary containing DataFrames of drug concentrations.
         drug_name (list): List of drug names to plot.
+        start (str): Start time for the plot. If None, the plot will start from the beginning of the data. Default is None.
+        stop (str): End time for the plot. If None, the plot will end at the last time point of the data. Default is None.
         show (bool): Whether to show the plot. Default is True.
         save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
     """
@@ -238,9 +240,16 @@ def plot_concentration(drug_concentrations, drug_name='all', show=False, save=No
     else:
         title = ', '.join(drug_name)
 
+    if start is None:
+        start = min([df['time'].iloc[0] for df in drug_concentrations.values()])
+    
+    if stop is None:
+        stop = max([df['time'].iloc[-1] for df in drug_concentrations.values()])
+
     plt.figure(figsize=(10, 6))
     for drug in drug_name:
         plt.plot(drug_concentrations[drug]['time'], drug_concentrations[drug]['concentration'], label=drug)
+    plt.xlim(pd.to_datetime(start), pd.to_datetime(stop))
     plt.xlabel('Time')
     plt.ylabel('Concentration (ug/kg)')
     plt.title(f'Concentration of {title} over time')
@@ -255,16 +264,26 @@ def plot_concentration(drug_concentrations, drug_name='all', show=False, save=No
 
     plt.close()
 
-def plot_metrics(data, show=False, save=None):
+def plot_metrics(data, window=2, std=True, start=None, stop=None, show=False, save=None):
     """
     Plot various metrics over time.
     
     Parameters:
         data (dict): Dictionary containing DataFrames for each metric.
+        window (int): Window size in seconds for moving average. Default is 2.
+        std (bool): Whether to plot the standard deviation as a shaded area. Default is True.
+        start (str): Start time for the plot. If None, the plot will start from the beginning of the data. Default is None.
+        stop (str): End time for the plot. If None, the plot will end at the last time point of the data. Default is None.
         show (bool): Whether to show the plot. Default is True.
         save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
     """
-    fig, axs = plt.subplots(3, 1, figsize=(10, 3*len(data)), sharex=True)
+    for metric in data:
+        data[metric][metric] = data[metric][metric].rolling(window=window//2, min_periods=1).mean()
+        
+        if std:
+            data[metric][f'{metric}_std'] = data[metric][metric].rolling(window=window//2, min_periods=1).std()
+
+    _, axs = plt.subplots(3, 1, figsize=(10, 3*len(data)), sharex=True)
 
     for ax, metric in enumerate(data):
         if metric == "heart_rate":
@@ -280,9 +299,27 @@ def plot_metrics(data, show=False, save=None):
             color = 'purple'
             ylabel = f'{metric}'
 
+        if start is None:
+            start = min([data[metric]['time'].iloc[0] for metric in data])
+        
+        if stop is None:
+            stop = max([data[metric]['time'].iloc[-1] for metric in data])
+
         datum = data[metric]
-        axs[ax].plot(datum['time'], datum[f'{metric}'], label=f'{metric}', color=color)
-        axs[ax].set_title(f'{metric} (1 min avg) vs time')
+        axs[ax].plot(datum['time'], datum[f'{metric}'], label=f'{metric}_mean', color=color)
+        axs[ax].set_xlim(pd.to_datetime(start), pd.to_datetime(stop))
+
+        if std:
+            axs[ax].fill_between(datum['time'], 
+                                 datum[f'{metric}'] - datum[f'{metric}_std'], 
+                                 datum[f'{metric}'] + datum[f'{metric}_std'], 
+                                 color=color, alpha=0.2, label=f'{metric} std')
+
+        if window == 2:
+            axs[ax].set_title(f'{metric} vs time')
+        else:
+            axs[ax].set_title(f'{metric} ({window}s avg) vs time')
+
         axs[ax].set_ylabel(ylabel)
         axs[ax].legend()
     
