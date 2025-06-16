@@ -48,15 +48,11 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
         if os.path.isdir(patient_dir):
             print('Processing Sickbay:', patient)
 
-            # Load SBS data
-            # sbs_file = os.path.join(patient_dir, f'{patient}_SBS_Scores.xlsx')
-
             # SBS Scores from Excel File
             print('Loading SBS data')
-            s = f"_SBS_Scores_{tag}.xlsx"
+            s = f"_SBS_Scores.xlsx"
             sbs_file = os.path.join(patient_dir, patient + s)
             if not os.path.isfile(sbs_file):
-                # raise FileNotFoundError(f'Actigraphy file not found: {sbs_file}')
                 print("SBS File not found")
                 continue 
 
@@ -315,8 +311,8 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
             vitals_data = loadmat(vitals_sbs_file)
             # print(vitals_data)
             SBS = vitals_data['sbs'].flatten()
-            default = vitals_data['default'].flatten()
             if tag == 'Retro':
+                default = vitals_data['default'].flatten()
                 SedPRN = vitals_data['SedPRN'].flatten()
             # Flatten the nested arrays
             start_time_flat = vitals_data['start_time'].flatten()
@@ -373,10 +369,10 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
                     matched_end_times.append(row['end_time'])
                     if tag == "Retro":
                         PRNs.append(row["SedPRN"])
-                    if row['Default'] == 'Y':
-                        default_accel.append('Y')
-                    else:
-                        default_accel.append('N')
+                        if row['Default'] == 'Y':
+                            default_accel.append('Y')
+                        else:
+                            default_accel.append('N')
                         
                 else:
                     # vitals_df.drop(index=i, inplace=True)
@@ -539,7 +535,8 @@ if __name__ == '__main__':
     '''
 
     # data_dir = r'C:\Users\HP\Documents\JHU_Academics\Research\DT 6\NewPedAccel\VentilatedPatientData'
-    data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
+    # data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
+    data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
 
     # Define global variables
     heart_rate = []
@@ -556,7 +553,7 @@ if __name__ == '__main__':
     lead_time = 15
 
     # tag = "Nurse"
-    tag = "Retro"
+    tag = "Nurse"
     final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
 
 
