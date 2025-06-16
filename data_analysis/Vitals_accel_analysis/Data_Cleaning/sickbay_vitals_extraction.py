@@ -29,7 +29,7 @@ def load_sickbay():
         print(f'Processing: Patient {patient_num}')
 
         filename = f'{patient_mrn}_SickBayData.csv'
-        patient_dir = r"S:\Sedation_monitoring\Sickbay_extract\Extract_0.5Hz\Study57_Tag123_EventList"
+        patient_dir = r"S:\Sedation_monitoring\sickbay_extract\Extraction_II\Extract_II_0.5Hz\Study57_Tag233_EventList"
 
         sickbay_data_path = os.path.join(patient_dir, filename)
 
@@ -38,7 +38,8 @@ def load_sickbay():
         print(df.head())
 
         # Convert time column to datetime
-        df['Time'] = pd.to_datetime(df['Time'])
+        df['Time'] = pd.to_datetime(df['Time'], errors='coerce')
+        df = df.dropna(subset=['Time'])
         df['Time_uniform'] = df['Time'].dt.strftime("%m/%d/%Y %I:%M:%S %p")
         
         # Convert DataFrame to a dictionary with keys as column names
@@ -46,15 +47,10 @@ def load_sickbay():
             'time': df['Time_uniform'].values,
             'heart_rate': df['PARM_HR'].values,
             'SpO2': df['PARM_SPO2_M'].values,
-            'respiratory_rate': df['PARM_RESP_RATE'].values,
-            #'blood_pressure_systolic': [np.nan],
-            'blood_pressure_systolic': df['PARM_NBP_SYS'].values,
-            'blood_pressure_mean': df['PARM_NBP_MEAN'].values,
-            # 'blood_pressure_diastolic': [np.nan]
-            'blood_pressure_diastolic': df['PARM_NBP_DIA'].values
+            'respiratory_rate': df['PARM_RESP_RATE'].values
         }
 
-        save_mat_dir = r"S:\Sedation_monitoring\Sickbay_extract\Sickbay_mat_files"
+        save_mat_dir = r"S:\Sedation_monitoring\sickbay_extract\Extraction_II\Extract_II_0.5Hz"
         mat_file_path = os.path.join(patient_dir, f'{patient_num}_SickBayData.mat')
 
         # Save the dictionary to a .mat file
