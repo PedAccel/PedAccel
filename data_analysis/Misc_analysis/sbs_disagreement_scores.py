@@ -13,7 +13,8 @@ import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
 
-data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Misc_analysis\PatientData'
+# data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Misc_analysis\PatientData'
+data_dir = r'/Users/sidharthraghavan/Library/CloudStorage/OneDrive-Personal/Sid_stuff/PROJECTS/PedAccel/data_analysis/Misc_analysis/PatientData'
 
 def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
     # Load data from Excel file
@@ -74,7 +75,7 @@ def sbs_disagreement():
                 for retro_time, retro_score in zip(retro_sbs_time, retro_epic_data['SBS']):
                     if pd.notna(nurse_time) and pd.notna(retro_time):
                         time_diff = abs(retro_time - nurse_time)
-                        if time_diff <= pd.Timedelta(minutes=30):
+                        if time_diff <= pd.Timedelta(minutes=10):
                             if retro_score != 'TODO':
                                 matched_scores.append((nurse_time, nurse_score, retro_score))
                                 score = 1

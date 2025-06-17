@@ -307,6 +307,10 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
     # search for patient directories in the data directory
     for patient in os.listdir(data_dir):
+        # Skip hidden files and non-directories
+        if patient.startswith('.') or not os.path.isdir(os.path.join(data_dir, patient)):
+            continue
+            
         print(f'Patient: {patient}')
         final_time = final_times_dict[patient]
 
@@ -581,7 +585,7 @@ if __name__ == '__main__':
 
     # tag = "Nurse"
     tag = "Retro"
-    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
+    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient14": None, "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
 
 
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
