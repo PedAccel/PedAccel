@@ -18,7 +18,7 @@ def load_sickbay():
 
     patient_info_add = 'Full_Patient_List_CCDA.xlsx'
     patient_info_excel = load_workbook(patient_info_add)
-    patient_info = patient_info_excel['Sheet1']
+    patient_info = patient_info_excel['Sheet2']
 
     print('Patient List Loaded')
 
@@ -51,7 +51,7 @@ def load_sickbay():
         }
 
         save_mat_dir = r"S:\Sedation_monitoring\sickbay_extract\Extraction_II\Extract_II_0.5Hz"
-        mat_file_path = os.path.join(patient_dir, f'{patient_num}_SickBayData.mat')
+        mat_file_path = os.path.join(patient_dir, f'Patient{patient_num}_SickBayData.mat')
 
         # Save the dictionary to a .mat file
         scipy.io.savemat(mat_file_path, data_dict)
