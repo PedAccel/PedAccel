@@ -50,7 +50,7 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
 
             # SBS Scores from Excel File
             print('Loading SBS data')
-            s = f"_SBS_Scores.xlsx"
+            s = f"_SBS_Scores_{tag}.xlsx"
             sbs_file = os.path.join(patient_dir, patient + s)
             if not os.path.isfile(sbs_file):
                 print("SBS File not found")
@@ -90,15 +90,28 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             vitals_data['heart_rate'] = vitals_data['heart_rate'].flatten()  # Flatten heart rate array
             vitals_data['SpO2'] = vitals_data['SpO2'].flatten()  # Flatten heart rate array
             vitals_data['respiratory_rate'] = vitals_data['respiratory_rate'].flatten()  # Flatten heart rate array
-            vitals_data['blood_pressure_systolic'] = vitals_data['blood_pressure_systolic'].flatten()  # Flatten heart rate array
-            vitals_data['blood_pressure_mean'] = vitals_data['blood_pressure_mean'].flatten()  # Flatten heart rate array
-            vitals_data['blood_pressure_diastolic'] = vitals_data['blood_pressure_diastolic'].flatten()  # Flatten heart rate array
 
+            if 'blood_pressure_systolic' in vitals_data:
+                vitals_data['blood_pressure_systolic'] = vitals_data['blood_pressure_systolic'].flatten()  # Flatten heart rate array
+            else:
+                vitals_data['blood_pressure_systolic'] = np.zeros(len(vitals_data['dts']))
+            if 'blood_pressure_mean' in vitals_data:
+                vitals_data['blood_pressure_mean'] = vitals_data['blood_pressure_mean'].flatten()
+            else:
+                vitals_data['blood_pressure_mean'] = np.zeros(len(vitals_data['dts']))
+            if 'blood_pressure_diastolic' in vitals_data:
+                vitals_data['blood_pressure_diastolic'] = vitals_data['blood_pressure_diastolic'].flatten()
+            else:
+                vitals_data['blood_pressure_diastolic'] = np.zeros(len(vitals_data['dts']))
 
             # Create a DataFrame from the dictionary
-            vitals_data_df = pd.DataFrame({'dts': vitals_data['dts'], 'heart_rate': vitals_data['heart_rate'], 'SpO2': vitals_data['SpO2'], 'respiratory_rate': vitals_data['respiratory_rate']
-                                           , 'blood_pressure_systolic': vitals_data['blood_pressure_systolic'], 'blood_pressure_mean': vitals_data['blood_pressure_mean']
-                                           , 'blood_pressure_diastolic': vitals_data['blood_pressure_diastolic']})
+            vitals_data_df = pd.DataFrame({'dts': vitals_data['dts'], 
+                                         'heart_rate': np.array(vitals_data['heart_rate']).flatten(), 
+                                         'SpO2': np.array(vitals_data['SpO2']).flatten(), 
+                                         'respiratory_rate': np.array(vitals_data['respiratory_rate']).flatten(),
+                                         'blood_pressure_systolic': vitals_data['blood_pressure_systolic'], 
+                                         'blood_pressure_mean': vitals_data['blood_pressure_mean'],
+                                         'blood_pressure_diastolic': vitals_data['blood_pressure_diastolic']})
             sbs = []
             default = []
 
@@ -166,22 +179,35 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             for i in range(len(vitals_list)):
                 name = names[i]
                 cur_list = filtered_dict[name] # cur_list is 2D
+                processed_list = []
                 for j in range(len(cur_list)):
-                    cur_list[j] = np.array(cur_list[j]) #convert each sublist to an np array
+                    # Handle nested arrays by converting to float first
+                    if isinstance(cur_list[j], (list, np.ndarray)):
+                        try:
+                            # Convert nested array to float
+                            flat_data = np.array(cur_list[j], dtype=float).flatten()
+                        except:
+                            # If conversion fails, use zeros
+                            flat_data = np.zeros(window_size * 30)
+                    else:
+                        flat_data = np.array(cur_list[j], dtype=float)
 
                     # Sampling vitals in data has glitches where extra or not enough data is recorded.
                     # To compensate, we remove or fill values: 
                     expected_samples = window_size * 30 # Time(min) * 60 sec/min * sr(1sample/2 sec)
-                    if(len(cur_list[j]) > expected_samples):
-                        cut = len(cur_list[j])-expected_samples
-                        cur_list[j] = cur_list[j][cut:]
-
-                    elif(len(cur_list[j]) < expected_samples): # Linear extrapolation to make all subarrays the same length
+                    if(len(flat_data) > expected_samples):
+                        cut = len(flat_data)-expected_samples
+                        flat_data = flat_data[cut:]
+                    elif(len(flat_data) < expected_samples): # Linear extrapolation to make all subarrays the same length
                         # Append NaN values to the end of the list
-                        num_missing_samples = expected_samples - len(cur_list[j])
+                        num_missing_samples = expected_samples - len(flat_data)
                         nan_values = np.full(num_missing_samples, np.nan)
-                        cur_list[j] = np.concatenate((cur_list[j], nan_values))
-                cur_list = np.array(cur_list, np.dtype('float16')) # Save List of np arrays as an np array
+                        flat_data = np.concatenate((flat_data, nan_values))
+                    
+                    processed_list.append(flat_data)
+                
+                # Convert the processed list to a numpy array
+                filtered_dict[name] = np.array(processed_list, dtype='float16')
             
             filtered_dict['sbs'] = np.array(sbs)
             
@@ -281,6 +307,10 @@ def load_and_segment_data_mat(data_dir, final_times_dict, window_size=15, lead_t
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
     # search for patient directories in the data directory
     for patient in os.listdir(data_dir):
+        # Skip hidden files and non-directories
+        if patient.startswith('.') or not os.path.isdir(os.path.join(data_dir, patient)):
+            continue
+            
         print(f'Patient: {patient}')
         final_time = final_times_dict[patient]
 
@@ -536,7 +566,8 @@ if __name__ == '__main__':
 
     # data_dir = r'C:\Users\HP\Documents\JHU_Academics\Research\DT 6\NewPedAccel\VentilatedPatientData'
     # data_dir = r'S:\Sedation_monitoring\PedAccel_directory\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
-    data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
+    # data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Vitals_accel_analysis\PatientData'
+    data_dir = r'/Users/sidharthraghavan/Library/CloudStorage/OneDrive-Personal/Sid_stuff/PROJECTS/PedAccel/data_analysis/Vitals_accel_analysis/PatientData'
 
     # Define global variables
     heart_rate = []
@@ -549,12 +580,12 @@ if __name__ == '__main__':
     vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
     names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
 
-    window_size = 16
-    lead_time = 15
+    window_size = 11
+    lead_time = 10
 
     # tag = "Nurse"
-    tag = "Nurse"
-    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
+    tag = "Retro"
+    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient14": None, "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
 
 
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)

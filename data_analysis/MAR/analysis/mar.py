@@ -246,15 +246,20 @@ def plot_concentration(drug_concentrations, drug_name='all', start=None, stop=No
     if stop is None:
         stop = max([df['time'].iloc[-1] for df in drug_concentrations.values()])
 
+    for drug in drug_concentrations:
+        drug_concentrations[drug] = drug_concentrations[drug][(drug_concentrations[drug]['time'] >= pd.to_datetime(start)) & (drug_concentrations[drug]['time'] <= pd.to_datetime(stop))].reset_index(drop=True)
+
     plt.figure(figsize=(10, 6))
     for drug in drug_name:
         plt.plot(drug_concentrations[drug]['time'], drug_concentrations[drug]['concentration'], label=drug)
-    plt.xlim(pd.to_datetime(start), pd.to_datetime(stop))
     plt.xlabel('Time')
     plt.ylabel('Concentration (ug/kg)')
-    plt.title(f'Concentration of {title} over time')
+
+    if drug_name == ['all']:
+        plt.title('Concentration over time')
+    else:
+        plt.title(f'Concentration of {title} over time')
     plt.legend()
-    plt.grid()
 
     if save:
         plt.savefig(save)
@@ -283,7 +288,7 @@ def plot_metrics(data, window=2, std=True, start=None, stop=None, show=False, sa
         if std:
             data[metric][f'{metric}_std'] = data[metric][metric].rolling(window=window//2, min_periods=1).std()
 
-    _, axs = plt.subplots(3, 1, figsize=(10, 3*len(data)), sharex=True)
+    _, axs = plt.subplots(len(data), 1, figsize=(10, 3*len(data)), sharex=True)
 
     for ax, metric in enumerate(data):
         if metric == "heart_rate":
@@ -305,9 +310,10 @@ def plot_metrics(data, window=2, std=True, start=None, stop=None, show=False, sa
         if stop is None:
             stop = max([data[metric]['time'].iloc[-1] for metric in data])
 
+        data[metric] = data[metric][(data[metric]['time'] >= pd.to_datetime(start)) & (data[metric]['time'] <= pd.to_datetime(stop))].reset_index(drop=True)
+
         datum = data[metric]
         axs[ax].plot(datum['time'], datum[f'{metric}'], label=f'{metric}_mean', color=color)
-        axs[ax].set_xlim(pd.to_datetime(start), pd.to_datetime(stop))
 
         if std:
             axs[ax].fill_between(datum['time'], 
@@ -322,6 +328,109 @@ def plot_metrics(data, window=2, std=True, start=None, stop=None, show=False, sa
 
         axs[ax].set_ylabel(ylabel)
         axs[ax].legend()
+    
+    plt.tight_layout()
+    
+    if save:
+        plt.savefig(save)
+
+    if show:
+        plt.show()
+    
+    plt.close()
+
+def plot_metrics_and_concentrations(data, drug_concentrations, drug_name='all', window=2, std=True, start=None, stop=None, show=False, save=None):
+    """
+    Plot various metrics and drug concentration over time.
+    
+    Parameters:
+        data (dict): Dictionary containing DataFrames for each metric.
+        drug_concentrations (dict): Dictionary containing DataFrames of drug concentrations.
+        drug_name (list): List of drug names to plot. Default is 'all'.
+        window (int): Window size in seconds for moving average. Default is 2.
+        std (bool): Whether to plot the standard deviation as a shaded area. Default is True.
+        start (str): Start time for the plot. If None, the plot will start from the beginning of the data. Default is None.
+        stop (str): End time for the plot. If None, the plot will end at the last time point of the data. Default is None.
+        show (bool): Whether to show the plot. Default is True.
+        save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
+    """
+    for metric in data:
+        data[metric][metric] = data[metric][metric].rolling(window=window//2, min_periods=1).mean()
+        
+        if std:
+            data[metric][f'{metric}_std'] = data[metric][metric].rolling(window=window//2, min_periods=1).std()
+
+    _, axs = plt.subplots(len(data)+1, 1, figsize=(10, 3*(len(data)+1)), sharex=True)
+
+    for ax, metric in enumerate(data):
+        if metric == "heart_rate":
+            color = 'orange'
+            ylabel = 'heart_rate (bpm)'
+        elif metric == 'respiratory_rate':
+            color = 'green'
+            ylabel = 'respiratory_rate (bpm)'
+        elif metric == 'acceleration':
+            color = 'blue'
+            ylabel = 'acceleration (g)'
+        else:
+            color = 'purple'
+            ylabel = f'{metric}'
+
+        if start is None:
+            start = min([data[metric]['time'].iloc[0] for metric in data])
+        
+        if stop is None:
+            stop = max([data[metric]['time'].iloc[-1] for metric in data])
+
+        data[metric] = data[metric][(data[metric]['time'] >= pd.to_datetime(start)) & (data[metric]['time'] <= pd.to_datetime(stop))].reset_index(drop=True)
+
+        datum = data[metric]
+        axs[ax].plot(datum['time'], datum[f'{metric}'], label=f'{metric}_mean', color=color)
+
+        if std:
+            axs[ax].fill_between(datum['time'], 
+                                 datum[f'{metric}'] - datum[f'{metric}_std'], 
+                                 datum[f'{metric}'] + datum[f'{metric}_std'], 
+                                 color=color, alpha=0.2, label=f'{metric} std')
+
+        if window == 2:
+            axs[ax].set_title(f'{metric} vs time')
+        else:
+            axs[ax].set_title(f'{metric} ({window}s avg) vs time')
+
+        axs[ax].set_ylabel(ylabel)
+        axs[ax].legend()
+
+    axs[-1].set_title('Drug Concentration vs Time')
+
+    if not isinstance(drug_name, list):
+        drug_name = [drug_name]
+
+    if drug_name == ['all']:
+        drug_name = drug_concentrations.keys()
+        title = ''
+    else:
+        title = ', '.join(drug_name)
+
+    if start is None:
+        start = min([df['time'].iloc[0] for df in drug_concentrations.values()])
+
+    if stop is None:
+        stop = max([df['time'].iloc[-1] for df in drug_concentrations.values()])
+    
+    for drug in drug_concentrations:
+        drug_concentrations[drug] = drug_concentrations[drug][(drug_concentrations[drug]['time'] >= pd.to_datetime(start)) & (drug_concentrations[drug]['time'] <= pd.to_datetime(stop))].reset_index(drop=True)
+
+    for drug in drug_name:
+        axs[-1].plot(drug_concentrations[drug]['time'], drug_concentrations[drug]['concentration'], label=drug)
+        axs[-1].set_xlabel('Time')
+        axs[-1].set_ylabel('Concentration (ug/kg)')
+        axs[-1].legend()
+
+        if drug_name == ['all']:
+            axs[-1].set_title('Concentration over time')
+        else:
+            axs[-1].set_title(f'Concentration of {title} over time')
     
     plt.tight_layout()
     
