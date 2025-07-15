@@ -580,12 +580,12 @@ if __name__ == '__main__':
     vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
     names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
 
-    window_size = 11
-    lead_time = 10
+    window_size = 31
+    lead_time = 1
 
     # tag = "Nurse"
     tag = "Retro"
-    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient14": None, "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
+    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient6": None, "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient14": None, "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
 
 
     # load_segment_sickbay(data_dir, window_size, lead_time, tag)
