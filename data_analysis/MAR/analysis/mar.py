@@ -57,51 +57,39 @@ def elimination_rates():
 def filter_mar(mar):
     """
     Filter the MAR DataFrame.
-    
-    Parameters:
-        mar_df (pd.DataFrame): The MAR DataFrame to filter.
-
-    Returns:
-        pd.DataFrame: Filtered narcotics.
-        pd.DataFrame: Filtered paralytics.
-        pd.DataFrame: Filtered alpha_agonists.
-        pd.DataFrame: Filtered ketamines.
-        pd.DataFrame: Filtered propofols.
-        pd.DataFrame: Filtered etomidates.
-        pd.DataFrame: Filtered benzodiazepines.
     """
 
-    agents = ['propofol', 'dexmedetomidine', 'midazolam', 'ketamine', 'diazepam', 'lidocaine', 'clonidine', 'hydroxyzine', 'diphenhydramine', 'fentanyl', 'hydromorphone', 'morphine', 'methadone', 'nalbuphine', 'acetaminophen']
+    mar['med_name'] = mar['med_name'].astype(str)
+    mar['mar_action'] = mar['mar_action'].astype(str)
+
+    agents = [
+        'propofol', 'dexmedetomidine', 'midazolam', 'ketamine', 'diazepam',
+        'lidocaine', 'clonidine', 'hydroxyzine', 'diphenhydramine', 'fentanyl',
+        'hydromorphone', 'morphine', 'methadone', 'nalbuphine', 'acetaminophen']
     pattern = '|'.join(agents)
-    mar = mar[mar['med_name'].str.lower().str.contains(pattern, regex=True)]
-    mar = mar[~mar['mar_action'].str.contains('Missed')]
+
+    mar = mar[mar['med_name'].str.lower().str.contains(pattern, regex=True, na=False)]
+    mar = mar[~mar['mar_action'].str.contains('Missed', na=False)]
     mar = mar.dropna(subset=['dose'])
 
-    narcotics = ['fentanyl', 'morphine', 'hydromorphone', 'oxycodone', 'methadone', 'remifentanil']
-    paralytics = ['rocuronium', 'vecuronium', 'succinylcholine', 'cisatracurium']
-    alpha_agonists = ['dexmedetomidine', 'clonidine']
-    ketamines = ['ketamine']
-    propofols = ['propofol']
-    etomidates = ['etomidate']
-    benzodiazepines = ['midazolam', 'diazepam', 'lorazepam']
+    groups = {
+        "narcotics": ['fentanyl', 'morphine', 'hydromorphone', 'oxycodone', 'methadone', 'remifentanil'],
+        "paralytics": ['rocuronium', 'vecuronium', 'succinylcholine', 'cisatracurium'],
+        "alpha_agonists": ['dexmedetomidine', 'clonidine'],
+        "ketamines": ['ketamine'],
+        "propofols": ['propofol'],
+        "etomidates": ['etomidate'],
+        "benzodiazepines": ['midazolam', 'diazepam', 'lorazepam'],}
 
-    narcotics_pattern = '|'.join(narcotics)
-    paralytics_pattern = '|'.join(paralytics)
-    alpha_agonists_pattern = '|'.join(alpha_agonists)
-    ketamines_pattern = '|'.join(ketamines)
-    propofols_pattern = '|'.join(propofols)
-    etomidates_pattern = '|'.join(etomidates)
-    benzodiazepines_pattern = '|'.join(benzodiazepines)
+    results = []
+    for _, drugs in groups.items():
+        subpattern = '|'.join(drugs)
+        results.append(
+            mar[mar['med_name'].str.lower().str.contains(subpattern, regex=True, na=False)].reset_index(drop=True)
+        )
 
-    mar_narcotics = mar[mar['med_name'].str.lower().str.contains(narcotics_pattern, regex=True)].reset_index(drop=True)
-    mar_paralytics = mar[mar['med_name'].str.lower().str.contains(paralytics_pattern, regex=True)].reset_index(drop=True)
-    mar_alpha_agonists = mar[mar['med_name'].str.lower().str.contains(alpha_agonists_pattern, regex=True)].reset_index(drop=True)
-    mar_ketamines = mar[mar['med_name'].str.lower().str.contains(ketamines_pattern, regex=True)].reset_index(drop=True)
-    mar_propofols = mar[mar['med_name'].str.lower().str.contains(propofols_pattern, regex=True)].reset_index(drop=True)
-    mar_etomidates = mar[mar['med_name'].str.lower().str.contains(etomidates_pattern, regex=True)].reset_index(drop=True)
-    mar_benzodiazepines = mar[mar['med_name'].str.lower().str.contains(benzodiazepines_pattern, regex=True)].reset_index(drop=True)
+    return tuple(results)
 
-    return mar_narcotics, mar_paralytics, mar_alpha_agonists, mar_ketamines, mar_propofols, mar_etomidates, mar_benzodiazepines
 
 def filter_drug(mar, drug_name):
     mar = mar[mar['med_name'].str.lower().str.contains(drug_name, regex=True)].reset_index(drop=True)
