@@ -57,51 +57,39 @@ def elimination_rates():
 def filter_mar(mar):
     """
     Filter the MAR DataFrame.
-    
-    Parameters:
-        mar_df (pd.DataFrame): The MAR DataFrame to filter.
-
-    Returns:
-        pd.DataFrame: Filtered narcotics.
-        pd.DataFrame: Filtered paralytics.
-        pd.DataFrame: Filtered alpha_agonists.
-        pd.DataFrame: Filtered ketamines.
-        pd.DataFrame: Filtered propofols.
-        pd.DataFrame: Filtered etomidates.
-        pd.DataFrame: Filtered benzodiazepines.
     """
 
-    agents = ['propofol', 'dexmedetomidine', 'midazolam', 'ketamine', 'diazepam', 'lidocaine', 'clonidine', 'hydroxyzine', 'diphenhydramine', 'fentanyl', 'hydromorphone', 'morphine', 'methadone', 'nalbuphine', 'acetaminophen']
+    mar['med_name'] = mar['med_name'].astype(str)
+    mar['mar_action'] = mar['mar_action'].astype(str)
+
+    agents = [
+        'propofol', 'dexmedetomidine', 'midazolam', 'ketamine', 'diazepam',
+        'lidocaine', 'clonidine', 'hydroxyzine', 'diphenhydramine', 'fentanyl',
+        'hydromorphone', 'morphine', 'methadone', 'nalbuphine', 'acetaminophen']
     pattern = '|'.join(agents)
-    mar = mar[mar['med_name'].str.lower().str.contains(pattern, regex=True)]
-    mar = mar[~mar['mar_action'].str.contains('Missed')]
+
+    mar = mar[mar['med_name'].str.lower().str.contains(pattern, regex=True, na=False)]
+    mar = mar[~mar['mar_action'].str.contains('Missed', na=False)]
     mar = mar.dropna(subset=['dose'])
 
-    narcotics = ['fentanyl', 'morphine', 'hydromorphone', 'oxycodone', 'methadone', 'remifentanil']
-    paralytics = ['rocuronium', 'vecuronium', 'succinylcholine', 'cisatracurium']
-    alpha_agonists = ['dexmedetomidine', 'clonidine']
-    ketamines = ['ketamine']
-    propofols = ['propofol']
-    etomidates = ['etomidate']
-    benzodiazepines = ['midazolam', 'diazepam', 'lorazepam']
+    groups = {
+        "narcotics": ['fentanyl', 'morphine', 'hydromorphone', 'oxycodone', 'methadone', 'remifentanil'],
+        "paralytics": ['rocuronium', 'vecuronium', 'succinylcholine', 'cisatracurium'],
+        "alpha_agonists": ['dexmedetomidine', 'clonidine'],
+        "ketamines": ['ketamine'],
+        "propofols": ['propofol'],
+        "etomidates": ['etomidate'],
+        "benzodiazepines": ['midazolam', 'diazepam', 'lorazepam'],}
 
-    narcotics_pattern = '|'.join(narcotics)
-    paralytics_pattern = '|'.join(paralytics)
-    alpha_agonists_pattern = '|'.join(alpha_agonists)
-    ketamines_pattern = '|'.join(ketamines)
-    propofols_pattern = '|'.join(propofols)
-    etomidates_pattern = '|'.join(etomidates)
-    benzodiazepines_pattern = '|'.join(benzodiazepines)
+    results = []
+    for _, drugs in groups.items():
+        subpattern = '|'.join(drugs)
+        results.append(
+            mar[mar['med_name'].str.lower().str.contains(subpattern, regex=True, na=False)].reset_index(drop=True)
+        )
 
-    mar_narcotics = mar[mar['med_name'].str.lower().str.contains(narcotics_pattern, regex=True)].reset_index(drop=True)
-    mar_paralytics = mar[mar['med_name'].str.lower().str.contains(paralytics_pattern, regex=True)].reset_index(drop=True)
-    mar_alpha_agonists = mar[mar['med_name'].str.lower().str.contains(alpha_agonists_pattern, regex=True)].reset_index(drop=True)
-    mar_ketamines = mar[mar['med_name'].str.lower().str.contains(ketamines_pattern, regex=True)].reset_index(drop=True)
-    mar_propofols = mar[mar['med_name'].str.lower().str.contains(propofols_pattern, regex=True)].reset_index(drop=True)
-    mar_etomidates = mar[mar['med_name'].str.lower().str.contains(etomidates_pattern, regex=True)].reset_index(drop=True)
-    mar_benzodiazepines = mar[mar['med_name'].str.lower().str.contains(benzodiazepines_pattern, regex=True)].reset_index(drop=True)
+    return tuple(results)
 
-    return mar_narcotics, mar_paralytics, mar_alpha_agonists, mar_ketamines, mar_propofols, mar_etomidates, mar_benzodiazepines
 
 def filter_drug(mar, drug_name):
     mar = mar[mar['med_name'].str.lower().str.contains(drug_name, regex=True)].reset_index(drop=True)
@@ -219,6 +207,90 @@ def calculate_concentrations_rk4(df, elimination_rate, start_time=None, end_time
 
     return concentration_df
 
+def calculate_concentrations_two_compartment_euler(df, weight, age, v1=None, v2=None, cl1=None, cl2=None, start_time=None, end_time=None):
+    """
+    Calculate the drug concentration over time using a two-compartment model with Euler's method. Model taken from Ginsberg et al. (1996).
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame containing time and dose information.
+        cl1 (float): Clearance rate for the central compartment.
+        cl2 (float): Clearance rate for the peripheral compartment.
+        v1 (float): Volume of distribution for the central compartment.
+        v2 (float): Volume of distribution for the peripheral compartment.
+        start_time (str): Start time for the calculation (optional).
+        end_time (str): End time for the calculation (optional).
+
+    Returns:
+        pd.DataFrame: DataFrame with calculated central and peripheral drug concentrations over time.
+    """
+    if v1 is None:
+        v1 = (0.43 * (weight - 19.8) + 5.8)
+    if v2 is None:
+        v2 = (6.2 * (age - 6.4) + 34.4)
+    if cl1 is None:
+        cl1 = (0.01 * (weight - 19.8) + 0.35) / 60
+    if cl2 is None:
+        cl2 = (0.82) / 60
+
+    if start_time is None:
+        start_time = df['time'].iloc[0]
+    if end_time is None:
+        end_time = df['time'].iloc[-1]
+
+    # if start_time < df['time'].iloc[0]:
+    #     extra_times = pd.date_range(
+    #         start=start_time,
+    #         end=df['time'].iloc[0] - pd.Timedelta(seconds=1),
+    #         freq='T'
+    #     )
+    #     padding = pd.DataFrame({
+    #         'time': extra_times,
+    #         'dose': 0,
+    #         'continuous_dose': 0,
+    #         'bolus_dose': 0
+    #     })
+    #     df = pd.concat([padding, df], ignore_index=True)
+    # if end_time > df['time'].iloc[-1]:
+    #     extra_times = pd.date_range(
+    #         start=df['time'].iloc[-1] + pd.Timedelta(seconds=1),
+    #         end=end_time,
+    #         freq='T'
+    #     )
+    #     padding = pd.DataFrame({
+    #         'time': extra_times,
+    #         'dose': 0,
+    #         'continuous_dose': 0,
+    #         'bolus_dose': 0
+    #     })
+    #     df = pd.concat([df, padding], ignore_index=True)
+
+    concentration_df = pd.DataFrame({'time': pd.date_range(start=start_time, end=end_time, freq='T')})
+    concentration_df = concentration_df.merge(df[['time', 'dose', 'continuous_dose', 'bolus_dose']], on='time', how='left')
+    concentration_df[['dose', 'continuous_dose', 'bolus_dose']] = concentration_df[['dose', 'continuous_dose', 'bolus_dose']].fillna(0)
+
+    a1 = []
+    a2 = []
+
+    for i in range(len(concentration_df)):
+        if i == 0:
+            a1.append(concentration_df['dose'].iloc[i] * weight)
+            a2.append(0)
+        else:
+            da1 = -cl1 * a1[-1] / v1 - cl2 * a1[-1] / v1 + cl2 * a2[-1] / v2 + concentration_df['continuous_dose'].iloc[i] * weight
+            da2 = cl2 * a1[-1] / v1 - cl2 * a2[-1] / v2
+
+            a1.append(a1[-1] + da1)
+            a2.append(a2[-1] + da2)
+
+    for i in range(len(a1)):
+        a1[i] = a1[i] / weight
+        a2[i] = a2[i] / weight
+    
+    concentration_df['concentration'] = a1
+    concentration_df['concentration_peripheral'] = a2
+
+    return concentration_df
+
 def plot_concentration(drug_concentrations, drug_name='all', start=None, stop=None, show=False, save=None):
     """
     Plot the concentration of a drug over time.
@@ -229,8 +301,11 @@ def plot_concentration(drug_concentrations, drug_name='all', start=None, stop=No
         start (str): Start time for the plot. If None, the plot will start from the beginning of the data. Default is None.
         stop (str): End time for the plot. If None, the plot will end at the last time point of the data. Default is None.
         show (bool): Whether to show the plot. Default is True.
-        save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
+        save
+        (str): File path to save the plot. If None, the plot will not be saved. Default is None.
     """
+    drug_concentrations = drug_concentrations.copy()
+
     if not isinstance(drug_name, list):
         drug_name = [drug_name]
 
@@ -255,7 +330,7 @@ def plot_concentration(drug_concentrations, drug_name='all', start=None, stop=No
     plt.xlabel('Time')
     plt.ylabel('Concentration (ug/kg)')
 
-    if drug_name == ['all']:
+    if drug_name == drug_concentrations.keys():
         plt.title('Concentration over time')
     else:
         plt.title(f'Concentration of {title} over time')
@@ -282,6 +357,8 @@ def plot_metrics(data, window=2, std=True, start=None, stop=None, show=False, sa
         show (bool): Whether to show the plot. Default is True.
         save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
     """
+    data = data.copy()
+
     for metric in data:
         data[metric][metric] = data[metric][metric].rolling(window=window//2, min_periods=1).mean()
         
@@ -354,6 +431,9 @@ def plot_metrics_and_concentrations(data, drug_concentrations, drug_name='all', 
         show (bool): Whether to show the plot. Default is True.
         save (str): File path to save the plot. If None, the plot will not be saved. Default is None.
     """
+    data = data.copy()
+    drug_concentrations = drug_concentrations.copy()
+
     for metric in data:
         data[metric][metric] = data[metric][metric].rolling(window=window//2, min_periods=1).mean()
         
@@ -422,12 +502,15 @@ def plot_metrics_and_concentrations(data, drug_concentrations, drug_name='all', 
         drug_concentrations[drug] = drug_concentrations[drug][(drug_concentrations[drug]['time'] >= pd.to_datetime(start)) & (drug_concentrations[drug]['time'] <= pd.to_datetime(stop))].reset_index(drop=True)
 
     for drug in drug_name:
+        if drug_concentrations[drug].empty:
+            continue
+        
         axs[-1].plot(drug_concentrations[drug]['time'], drug_concentrations[drug]['concentration'], label=drug)
         axs[-1].set_xlabel('Time')
         axs[-1].set_ylabel('Concentration (ug/kg)')
         axs[-1].legend()
 
-        if drug_name == ['all']:
+        if drug_name == drug_concentrations.keys():
             axs[-1].set_title('Concentration over time')
         else:
             axs[-1].set_title(f'Concentration of {title} over time')

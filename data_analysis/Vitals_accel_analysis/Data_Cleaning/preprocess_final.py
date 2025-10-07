@@ -580,8 +580,8 @@ if __name__ == '__main__':
     vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
     names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
 
-    window_size = 31
-    lead_time = 1
+    window_size = 35
+    lead_time = 5
 
     # tag = "Nurse"
     tag = "Retro"
