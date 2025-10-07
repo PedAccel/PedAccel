@@ -1,5 +1,5 @@
 '''
-Extracts Patient Weight Data from CCDA .xlsx files
+Extracts Patient Weight and Height Data from CCDA .xlsx files
 |_ To be run on JHH SAFE Desktop.
 
 '''
@@ -18,7 +18,7 @@ def load_weight_data():
 
     # Define features for extraction
     desired_features = [
-        'Weight'
+        'Weight', 'Height'
     ]
 
     patient_info_add = 'Full_Patient_List_CCDA.xlsx'
