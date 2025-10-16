@@ -5,6 +5,7 @@ import numpy as np
 from datetime import datetime
 from tqdm import tqdm
 import math
+from scipy.signal import butter, filtfilt
 from pygt3x.reader import FileReader 
 
 def load_mar_data(data_dir, pat_num):
@@ -124,6 +125,18 @@ def load_raw_accel_data(data_dir, pat_num):
 
     return df
 
+def highpass_filter(data, cutoff=0.3, fs=100, order=4):
+    """
+    High-pass Butterworth filter.
+    cutoff: cutoff frequency in Hz
+    fs: sampling rate (Hz)
+    order: filter order
+    """
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='high', analog=False)
+    return filtfilt(b, a, data)
+
 def process_accel_data(data_dir, pat_num=None, save=None):
     """
     Finds the magnitude of the acceleration vector and averages it over 100 samples.
@@ -148,24 +161,23 @@ def process_accel_data(data_dir, pat_num=None, save=None):
     if pat_num is not None:
         df = load_raw_accel_data(data_dir, pat_num)
 
-    new_df = pd.DataFrame(index=range(len(df) // 200), columns=['time', 'x', 'y', 'z'])
-    new_df['time'] = pd.to_datetime(new_df['time'])
-    new_df['x'] = new_df['x'].astype(float)
-    new_df['y'] = new_df['y'].astype(float)
-    new_df['z'] = new_df['z'].astype(float)
+        fs = 100
+        df["X"] = highpass_filter(df["X"], fs=fs)
+        df["Y"] = highpass_filter(df["Y"], fs=fs)
+        df["Z"] = highpass_filter(df["Z"], fs=fs)
 
-    for i in tqdm(range(len(new_df))):
-        new_df.loc[i, 'time'] = df['time'].iloc[i*200]
+    block_size = 200
+    df["block"] = df.index // block_size
+    new_df = df.groupby("block").agg({
+        "time": "first",
+        "X": "mean",
+        "Y": "mean",
+        "Z": "mean"
+    }).reset_index(drop=True)
 
-        interval = range(i*200, (i+1)*200, 10)
-
-        new_df.loc[i, 'x'] = np.average(df['X'].iloc[interval])
-        new_df.loc[i, 'y'] = np.average(df['Y'].iloc[interval])
-        new_df.loc[i, 'z'] = np.average(df['Z'].iloc[interval])
-
-    new_df['time'] = new_df['time'].dt.floor('2s')
-    
-    new_df['a'] = np.sqrt(new_df['x']**2 + new_df['y']**2 + new_df['z']**2)
+    new_df.rename(columns={"X": "x", "Y": "y", "Z": "z"}, inplace=True)
+    new_df["time"] = pd.to_datetime(new_df["time"]).dt.floor("2s")
+    new_df["a"] = np.sqrt(new_df["x"]**2 + new_df["y"]**2 + new_df["z"]**2)
 
     if save is not None and not os.path.exists(save):
         new_df.to_csv(save, index=False)
