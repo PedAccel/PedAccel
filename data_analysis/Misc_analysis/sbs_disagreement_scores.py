@@ -25,7 +25,7 @@ def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
     
     # Convert 'Time_uniform' to datetime
     if 'Time_uniform' in df.columns:
-        df['Time_uniform'] = pd.to_datetime(df['Time_uniform'], errors='coerce')
+        df['Time_uniform'] = pd.to_datetime(df['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
     
     if to_numpy:
         array = df.to_numpy()
@@ -49,7 +49,7 @@ def sbs_disagreement():
             nurse_epic_data, epic_names = load_from_excel(nurse_sbs_file)
             # nurse_epic_data = nurse_epic_data.dropna(subset=['Time_uniform'])
             nurse_sbs = nurse_epic_data['SBS']
-            nurse_sbs_time = pd.to_datetime(nurse_epic_data['Time_uniform'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+            nurse_sbs_time = pd.to_datetime(nurse_epic_data['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
 
 
             # Load Retro Nurse SBS Scores
@@ -63,7 +63,7 @@ def sbs_disagreement():
             retro_epic_data, epic_names = load_from_excel(retro_sbs_file)
             # retro_epic_data = retro_epic_data.dropna(subset=['Time_uniform'])
             retro_sbs = retro_epic_data['SBS']
-            retro_sbs_time = pd.to_datetime(retro_epic_data['Time_uniform'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+            retro_sbs_time = pd.to_datetime(retro_epic_data['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
             
             print(f"Nurse data points: {len(nurse_sbs_time)}")
             print(f"Retro data points: {len(retro_sbs_time)}")
@@ -75,7 +75,7 @@ def sbs_disagreement():
                 for retro_time, retro_score in zip(retro_sbs_time, retro_epic_data['SBS']):
                     if pd.notna(nurse_time) and pd.notna(retro_time):
                         time_diff = abs(retro_time - nurse_time)
-                        if time_diff <= pd.Timedelta(minutes=15):
+                        if time_diff <= pd.Timedelta(minutes=5):
                             if retro_score != 'TODO':
                                 matched_scores.append((nurse_time, nurse_score, retro_score))
                                 score = 1
@@ -143,27 +143,31 @@ def sbs_disagreement():
 def sbs_disagreement_combined():
     all_nurse_scores = []
     all_retro_scores = []
-    used_nurse_indices = set()
+    included_patients = []
+    
     for patient in os.listdir(data_dir):
         patient_dir = os.path.join(data_dir, patient)
         if os.path.isdir(patient_dir):
+            print(f"Processing {patient}...")
             # Load Nurse SBS Scores
             s = f"_SBS_Scores.xlsx"
             nurse_sbs_file = os.path.join(patient_dir, patient + s)
             if not os.path.isfile(nurse_sbs_file):
+                print(f"  No nurse file found for {patient}")
                 continue
             nurse_epic_data, epic_names = load_from_excel(nurse_sbs_file)
-            nurse_sbs_time = pd.to_datetime(nurse_epic_data['Time_uniform'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+            nurse_sbs_time = pd.to_datetime(nurse_epic_data['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
 
             # Load Retro Nurse SBS Scores
             s = f"_SBS_Scores_Retro.xlsx"
             retro_sbs_file = os.path.join(patient_dir, patient + s)
             if not os.path.isfile(retro_sbs_file):
+                print(f"  No retro file found for {patient}")
                 continue
             retro_epic_data, epic_names = load_from_excel(retro_sbs_file)
-            retro_sbs_time = pd.to_datetime(retro_epic_data['Time_uniform'], format='%Y-%m-%d %H:%M:%S', errors='coerce')
+            retro_sbs_time = pd.to_datetime(retro_epic_data['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
 
-            # For each retro score, find the closest nurse score within 15 minutes (each nurse score can only be matched once)
+            # For each retro score, find the closest nurse score within 10 minutes (each nurse score can only be matched once)
             nurse_times = nurse_sbs_time.reset_index(drop=True)
             nurse_scores = pd.to_numeric(nurse_epic_data['SBS'], errors='coerce').reset_index(drop=True)
             used_nurse_indices = set()
@@ -184,6 +188,10 @@ def sbs_disagreement_combined():
             if matched_nurse_scores:
                 all_nurse_scores.extend(matched_nurse_scores)
                 all_retro_scores.extend(matched_retro_scores)
+                included_patients.append(patient)
+                print(f"  ✓ {patient}: {len(matched_nurse_scores)} matched scores")
+            else:
+                print(f"  ✗ {patient}: No matches found")
     # Compute statistics and confusion matrix
     if not all_nurse_scores or not all_retro_scores:
         print("No matched scores found across all patients.")
@@ -192,6 +200,21 @@ def sbs_disagreement_combined():
     rmse = np.sqrt(mean_squared_error(all_nurse_scores, all_retro_scores))
     correlation = np.corrcoef(all_nurse_scores, all_retro_scores)[0, 1]
     kappa = cohen_kappa_score(all_nurse_scores, all_retro_scores)
+    print(f"\nIncluded patients ({len(included_patients)}): {', '.join(included_patients)}")
+    print(f"Total matched scores: {len(all_nurse_scores)}")
+    
+    # Analyze +2 agreement specifically
+    nurse_plus2_count = sum(1 for score in all_nurse_scores if score == 2)
+    retro_plus2_count = sum(1 for score in all_retro_scores if score == 2)
+    both_plus2_count = sum(1 for nurse, retro in zip(all_nurse_scores, all_retro_scores) if nurse == 2 and retro == 2)
+    
+    print(f"\n+2 Score Analysis:")
+    print(f"Nurse +2 scores: {nurse_plus2_count}")
+    print(f"Retrospective +2 scores: {retro_plus2_count}")
+    print(f"Both nurse AND retro +2: {both_plus2_count}")
+    if nurse_plus2_count > 0:
+        print(f"Agreement on +2: {both_plus2_count}/{nurse_plus2_count} ({both_plus2_count/nurse_plus2_count:.1%})")
+    
     print("\nCombined Disagreement metrics across all patients:")
     print(f"Mean Absolute Error: {mae:.2f}")
     print(f"Root Mean Square Error: {rmse:.2f}")
@@ -207,7 +230,7 @@ def sbs_disagreement_combined():
     plt.ylabel('Nurse SBS Score')
     # Save in the same directory as this script
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    plt.savefig(os.path.join(script_dir, 'combined_SBS_confusion_matrix.png'))
+    plt.savefig(os.path.join(script_dir, 'combined_SBS_confusion_matrix_new.png'))
     plt.close()
 
 sbs_disagreement_combined()

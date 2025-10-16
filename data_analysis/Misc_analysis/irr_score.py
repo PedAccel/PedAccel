@@ -1,3 +1,8 @@
+'''
+Interrater Reliability Analysis
+|_ Sidharth Raghavan 08/04/2025
+'''
+
 import os
 import pandas as pd
 import numpy as np
