@@ -174,10 +174,21 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             filename = f'{patient}_SICKBAY_{lead_time}MIN_{window_size-lead_time}MIN_{tag}.mat'
             save_file = os.path.join(patient_dir, filename)
             filtered_dict = {name: vitals for name, vitals in zip(names_filtered, vitals_list_filtered)}
+            print(f"Available keys in filtered_dict: {list(filtered_dict.keys())}")
+            print(f"Original names: {names}")
+            print(f"Filtered names: {names_filtered}")
+
+            # Check if filtered_dict is empty
+            if not filtered_dict:
+                print(f"No vitals data found for {patient}, skipping...")
+                continue
 
             # Filtering so that data is saved properly
             for i in range(len(vitals_list)):
                 name = names[i]
+                if name not in filtered_dict:
+                    print(f"Warning: {name} not found in filtered_dict, skipping...")
+                    continue
                 cur_list = filtered_dict[name] # cur_list is 2D
                 processed_list = []
                 for j in range(len(cur_list)):
@@ -212,6 +223,11 @@ def load_segment_sickbay(data_dir, window_size=15, lead_time=10, tag = "Nurse"):
             filtered_dict['sbs'] = np.array(sbs)
             
             # Filter Vitals Data:
+            # Only process if filtered_dict has data
+            if not filtered_dict:
+                print(f"Skipping vitals processing for {patient} - no data available")
+                continue
+                
             temp_hr = filtered_dict['heart_rate']
             temp_SpO2 = filtered_dict['SpO2']
             temp_rr = filtered_dict['respiratory_rate']
@@ -580,16 +596,16 @@ if __name__ == '__main__':
     vitals_list = [heart_rate, SpO2, respiratory_rate, blood_pressure_systolic, blood_pressure_mean,blood_pressure_diastolic]
     names = ['heart_rate', 'SpO2', 'respiratory_rate', 'blood_pressure_systolic', 'blood_pressure_mean', 'blood_pressure_diastolic']
 
-    window_size = 31
-    lead_time = 1
+    window_size = 35
+    lead_time = 5
 
     # tag = "Nurse"
     tag = "Retro"
-    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient6": None, "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient14": None, "Patient15": pd.Timestamp('2024-02-18 07:00:00')}  
+    final_times_dict = {"Patient3": None, "Patient4": pd.Timestamp('2023-11-19 13:29:00'), "Patient6": None, "Patient9": None, "Patient11": pd.Timestamp('2024-02-01 18:00:00'), "Patient14": None, "Patient15": pd.Timestamp('2024-02-18 07:00:00'), "Patient20": None, "Patient22": None, "Patient23": None}  
 
 
-    # load_segment_sickbay(data_dir, window_size, lead_time, tag)
-    load_and_segment_data_mat(data_dir, final_times_dict, window_size, lead_time, tag)
+    load_segment_sickbay(data_dir, window_size, lead_time, tag)
+    # load_and_segment_data_mat(data_dir, final_times_dict, window_size, lead_time, tag)
 
     # add try catch block for naming
 
