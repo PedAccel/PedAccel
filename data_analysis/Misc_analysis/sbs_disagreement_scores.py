@@ -12,8 +12,6 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
-
-# data_dir = r'C:\Users\sidha\OneDrive\Sid_stuff\PROJECTS\PedAccel\data_analysis\Misc_analysis\PatientData'
 data_dir = r'/Users/sidharthraghavan/Library/CloudStorage/OneDrive-Personal/Sid_stuff/PROJECTS/PedAccel/data_analysis/Misc_analysis/PatientData'
 
 def load_from_excel(sbs_filepath, to_numpy=False, verbose=False):
@@ -38,6 +36,7 @@ def sbs_disagreement():
         patient_dir = os.path.join(data_dir, patient)
         if os.path.isdir(patient_dir):
             print(f"\nProcessing patient: {patient}")
+
             # Load Nurse SBS Scores
             print('Loading Nurse SBS data')
             s = f"_SBS_Scores.xlsx"
@@ -47,10 +46,8 @@ def sbs_disagreement():
                 continue 
 
             nurse_epic_data, epic_names = load_from_excel(nurse_sbs_file)
-            # nurse_epic_data = nurse_epic_data.dropna(subset=['Time_uniform'])
             nurse_sbs = nurse_epic_data['SBS']
             nurse_sbs_time = pd.to_datetime(nurse_epic_data['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
-
 
             # Load Retro Nurse SBS Scores
             print('Loading Retro SBS data')
@@ -61,7 +58,6 @@ def sbs_disagreement():
                 continue 
 
             retro_epic_data, epic_names = load_from_excel(retro_sbs_file)
-            # retro_epic_data = retro_epic_data.dropna(subset=['Time_uniform'])
             retro_sbs = retro_epic_data['SBS']
             retro_sbs_time = pd.to_datetime(retro_epic_data['Time_uniform'], format='%m/%d/%Y %I:%M:%S %p', errors='coerce')
             
@@ -149,6 +145,7 @@ def sbs_disagreement_combined():
         patient_dir = os.path.join(data_dir, patient)
         if os.path.isdir(patient_dir):
             print(f"Processing {patient}...")
+
             # Load Nurse SBS Scores
             s = f"_SBS_Scores.xlsx"
             nurse_sbs_file = os.path.join(patient_dir, patient + s)
@@ -189,9 +186,10 @@ def sbs_disagreement_combined():
                 all_nurse_scores.extend(matched_nurse_scores)
                 all_retro_scores.extend(matched_retro_scores)
                 included_patients.append(patient)
-                print(f"  ✓ {patient}: {len(matched_nurse_scores)} matched scores")
+                print(f"{patient}: {len(matched_nurse_scores)} matched scores")
             else:
-                print(f"  ✗ {patient}: No matches found")
+                print(f"{patient}: No matches found")
+
     # Compute statistics and confusion matrix
     if not all_nurse_scores or not all_retro_scores:
         print("No matched scores found across all patients.")
@@ -220,17 +218,37 @@ def sbs_disagreement_combined():
     print(f"Root Mean Square Error: {rmse:.2f}")
     print(f"Correlation Coefficient: {correlation:.2f}")
     print(f"Cohen's Kappa: {kappa:.2f}")
+
     # Create confusion matrix
     cm = confusion_matrix(all_nurse_scores, all_retro_scores, labels=range(-3, 3))
-    plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                xticklabels=range(-3, 3), yticklabels=range(-3, 3))
-    plt.title('Combined SBS Scores Confusion Matrix (All Patients)')
-    plt.xlabel('Retrospective SBS Score')
-    plt.ylabel('Nurse SBS Score')
-    # Save in the same directory as this script
+
+    # Calculate disagreement matrix
+    disagreement_visual = np.zeros_like(cm, dtype=float)
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            disagreement_visual[i, j] = abs(i - j)
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+
+    sns.heatmap(disagreement_visual, annot=cm, fmt='d', cmap='Reds',
+                xticklabels=range(-3, 3), yticklabels=range(-3, 3),
+                mask=(cm == 0), ax=ax, vmin=0, vmax=5,
+                cbar_kws={'label': 'Absolute Difference'},
+                annot_kws={'fontsize': 10},
+                linewidths=1, linecolor='white')
+
+    ax.set_title('Nurse vs. Retrospective SBS Score Agreement', fontsize=12)
+    plt.xlabel('Retrospective \'Validated\' SBS Score')
+    ax.set_ylabel('Nurse SBS Score', fontsize=11)
+
+    plt.tight_layout()
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    plt.savefig(os.path.join(script_dir, 'combined_SBS_confusion_matrix_new.png'))
+    figures_dir = os.path.join(script_dir, 'figures')
+    os.makedirs(figures_dir, exist_ok=True)
+
+    plt.savefig(os.path.join(figures_dir, 'combined_SBS_confusion_matrix.png'), 
+                dpi=300, bbox_inches='tight')
     plt.close()
 
 sbs_disagreement_combined()
