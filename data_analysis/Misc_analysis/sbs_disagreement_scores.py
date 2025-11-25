@@ -11,6 +11,8 @@ from sklearn.metrics import cohen_kappa_score
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
+from matplotlib.colors import LinearSegmentedColormap, ListedColormap
+import matplotlib.colors as mcolors
 
 data_dir = r'/Users/sidharthraghavan/Library/CloudStorage/OneDrive-Personal/Sid_stuff/PROJECTS/PedAccel/data_analysis/Misc_analysis/PatientData'
 
@@ -219,23 +221,43 @@ def sbs_disagreement_combined():
     print(f"Correlation Coefficient: {correlation:.2f}")
     print(f"Cohen's Kappa: {kappa:.2f}")
 
-    # Create confusion matrix
+    # Create confusion matrix (keep original range -3 to 2)
     cm = confusion_matrix(all_nurse_scores, all_retro_scores, labels=range(-3, 3))
 
-    # Calculate disagreement matrix
+    # Calculate disagreement matrix with custom colors
     disagreement_visual = np.zeros_like(cm, dtype=float)
     for i in range(cm.shape[0]):
         for j in range(cm.shape[1]):
-            disagreement_visual[i, j] = abs(i - j)
+            if cm[i, j] == 0:
+                # No data: mark as NaN for gray color
+                disagreement_visual[i, j] = np.nan
+            elif i == j:
+                # Same scores: mark as -1 for white color
+                disagreement_visual[i, j] = -1
+            else:
+                # Different scores: absolute difference (max is 4, not 5)
+                disagreement_visual[i, j] = abs(i - j)
 
     fig, ax = plt.subplots(figsize=(8, 7))
 
-    sns.heatmap(disagreement_visual, annot=cm, fmt='d', cmap='Reds',
+    # Create custom colormap: white for same scores, Reds for differences 1-4
+    colors = ['white'] + sns.color_palette('Reds', n_colors=4)
+    cmap = ListedColormap(colors)
+    cmap.set_bad(color='darkgray')  # Set color for NaN values
+    bounds = [-1.5, -0.5, 1.5, 2.5, 3.5, 4.5]
+    norm = mcolors.BoundaryNorm(bounds, cmap.N)
+
+    sns.heatmap(disagreement_visual, annot=cm, fmt='d', cmap=cmap, norm=norm,
                 xticklabels=range(-3, 3), yticklabels=range(-3, 3),
-                mask=(cm == 0), ax=ax, vmin=0, vmax=5,
-                cbar_kws={'label': 'Absolute Difference'},
+                ax=ax,
+                cbar_kws={'label': 'Absolute Difference', 'ticks': [-1, 1, 2, 3, 4]},
                 annot_kws={'fontsize': 10},
-                linewidths=1, linecolor='white')
+                linewidths=1, linecolor='darkgray',
+                cbar=True)
+    
+    # Update colorbar labels
+    cbar = ax.collections[0].colorbar
+    cbar.set_ticklabels(['Same', '1', '2', '3', '4'])
 
     ax.set_title('Nurse vs. Retrospective SBS Score Agreement', fontsize=12)
     plt.xlabel('Retrospective \'Validated\' SBS Score')
@@ -252,6 +274,3 @@ def sbs_disagreement_combined():
     plt.close()
 
 sbs_disagreement_combined()
-
-
-
